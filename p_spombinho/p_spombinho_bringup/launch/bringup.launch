@@ -1,0 +1,29 @@
+<launch>
+    <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
+    
+    <arg name="x_pos" default="-0.4"/>
+    <arg name="y_pos" default="-1.5"/>
+    <arg name="z_pos" default="0.0"/>
+    <arg name="player_name" default="p_spombinho"/>
+    <arg name="player_color" default="Blue"/>
+
+    <group ns= "$(arg player_name)">
+    	<param name="tf_prefix" value="$(arg player_name)" />
+        <param name="robot_description" command="$(find xacro)/xacro '$(find p_spombinho_description)/urdf/p_spombinho.urdf.xacro'
+                                                 player_name:=$(arg player_name) player_color:=$(arg player_color) "/>
+<!--	    <param name="robot_description" command="$(find xacro)/xacro $(find p_spombinho_description)/urdf/p_spombinho.urdf.xacro" />-->
+<!--        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>-->
+    </group>
+    
+    
+  <include file="$(find p_spombinho_bringup)/launch/spawn.launch">
+    <arg name="x_pos" value="$(arg x_pos)" />
+    <arg name="y_pos" value="$(arg y_pos)" />
+    <arg name="z_pos" value="$(arg z_pos)" />
+    <arg name="player_name" value="$(arg player_name)" />
+  </include>
+  
+<!--   <include file="$(find p_spombinho_bringup)/launch/visualize.launch">-->
+<!--   </include>-->
+
+</launch>

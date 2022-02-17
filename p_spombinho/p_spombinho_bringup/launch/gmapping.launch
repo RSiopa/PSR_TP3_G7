@@ -1,0 +1,14 @@
+<launch>
+    <arg name="player_name" default="p_spombinho"/>
+
+    <!-- Launch gmapping, loading configuration file -->
+    <group ns= "$(arg player_name)">
+        <node pkg="gmapping" type="slam_gmapping" name="gmapping" output="screen" >
+            <remap from="scan" to="/$(arg player_name)/scan" />
+            <param name="odom_frame" value="/$(arg player_name)/odom" />
+            <param name="base_frame" value="/$(arg player_name)/base_footprint" />
+            <remap from="scan" to="/$(arg player_name)/scan"/>
+        </node>
+    </group>
+          
+</launch>
