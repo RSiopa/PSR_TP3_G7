@@ -23,5 +23,13 @@ values from the image of the camera
 laser scanner values
 fusion of sensor data
 
-points: best way to find the world coordinates, faster and with less math
+problems: very hard, lot of computational power
+
+3º method, discover using camera depth and vetor of 
+need: 
+https://answers.ros.org/question/367829/converting-image-pixel-coordinates-2dx-y-to-3d-world-coordinatequaternion/
+values from the depth of the camera
+object centroid from object image
+
+problems: easy, fast (idk about precise)
 
