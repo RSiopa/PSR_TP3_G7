@@ -22,6 +22,7 @@ need:
 values from the image of the camera
 laser scanner values
 fusion of sensor data
+we still need the camera parameters :(
 
 problems: very hard, lot of computational power
 
