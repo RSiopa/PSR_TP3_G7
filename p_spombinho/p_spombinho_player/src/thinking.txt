@@ -33,5 +33,9 @@ https://github.com/IntelRealSense/realsense-ros/issues/714
 values from the depth of the camera
 object centroid from object image
 
-problems: easy, fast (idk about precise)
+problems: easy, fast (idk about precise) OR CAMERA IS NOT DEPTH, DOESN'T WORK
+
+
+
+https://answers.ros.org/question/28957/calibrate-gazebo-camera/ extrinsics are not needed in gazebo, we already know the pose of the camera
 
