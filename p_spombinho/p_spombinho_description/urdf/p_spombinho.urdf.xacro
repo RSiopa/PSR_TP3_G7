@@ -162,6 +162,8 @@
     </inertial>
   </link>
 
+<!--  imu -->
+
   <joint name="imu_joint" type="fixed">
     <parent link="base_link"/>
     <child link="imu_link"/>
@@ -176,6 +178,7 @@
     <origin xyz="-0.064 0 0.122" rpy="0 0 0"/>
   </joint>
 
+<!--  laser scanner -->
   <link name="base_scan">
     <visual>
       <origin xyz="0 0 0.0" rpy="0 0 0"/>
@@ -201,6 +204,7 @@
     </inertial>
   </link>
 
+<!--  camera front -->
   <joint name="camera_joint" type="fixed">
     <origin xyz="0.073 -0.011 0.084" rpy="0 0 0"/>
     <parent link="base_link"/>
@@ -229,5 +233,36 @@
     <child link="camera_rgb_optical_frame"/>
   </joint>
   <link name="camera_rgb_optical_frame"/>
+
+<!--  camera back   -->
+
+  <joint name="camera_joint_back" type="fixed">
+    <origin xyz="-0.2 -0.011 0.084" rpy="0 0 -3.14"/>
+    <parent link="base_link"/>
+    <child link="camera_link_back"/>
+  </joint>
+
+  <link name="camera_link_back">
+    <collision>
+      <origin xyz="0.005 0.011 0.013" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.015 0.030 0.027"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="camera_rgb_joint_back" type="fixed">
+    <origin xyz="0.003 0.011 0.009" rpy="0 0 0"/>
+    <parent link="camera_link_back"/>
+    <child link="camera_rgb_frame_back"/>
+  </joint>
+  <link name="camera_rgb_frame_back"/>
+
+  <joint name="camera_rgb_optical_joint_back" type="fixed">
+    <origin xyz="0 0 0" rpy="-1.57 0 -1.57"/>
+    <parent link="camera_rgb_frame_back"/>
+    <child link="camera_rgb_optical_frame_back"/>
+  </joint>
+  <link name="camera_rgb_optical_frame_back"/>
 
 </robot>

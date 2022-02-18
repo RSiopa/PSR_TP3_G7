@@ -12,7 +12,7 @@
         <param name="robot_description" command="$(find xacro)/xacro '$(find p_spombinho_description)/urdf/p_spombinho.urdf.xacro'
                                                  player_name:=$(arg player_name) player_color:=$(arg player_color) "/>
 <!--	    <param name="robot_description" command="$(find xacro)/xacro $(find p_spombinho_description)/urdf/p_spombinho.urdf.xacro" />-->
-<!--        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>-->
+        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>
     </group>
     
     
