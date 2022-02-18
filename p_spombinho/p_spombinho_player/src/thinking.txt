@@ -13,18 +13,18 @@ create a mask also for the obstacles (or maybe I only need the Laser scanner for
 1º method, discover using only the camera
 need:
 intrisics from the camera : https://answers.ros.org/question/377196/find-intrisic-camera-matrix-from-gazebo-model/
-extrinsics from the camera : ...
-problem: can't calibrate camera, not a good method and very hard
+extrinsics from the camera : get him from xacro or tf
+problem: can have lots of errors since the camera is not that precise
 
 
 2º method, discover using camera and laser scanner
 need: 
 values from the image of the camera
 laser scanner values
+put the laser values in the image
 fusion of sensor data
-we still need the camera parameters :(
+method used by the professor in this video https://www.youtube.com/watch?v=fhX8FUi68So time 1:20:00 maybe
 
-problems: very hard, lot of computational power
 
 3º method, discover using camera depth and vetor of 
 need: 
