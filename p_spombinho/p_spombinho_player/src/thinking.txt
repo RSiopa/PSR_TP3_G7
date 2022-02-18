@@ -8,3 +8,20 @@ https://www.fdxlabs.com/calculate-x-y-z-real-world-coordinates-from-a-single-cam
 with that the robot can follow the goal
 create arguments to choose manual mode and auto mode
 create a mask also for the obstacles (or maybe I only need the Laser scanner for that? Will see)
+
+
+1º method, discover using only the camera
+need:
+intrisics from the camera : https://answers.ros.org/question/377196/find-intrisic-camera-matrix-from-gazebo-model/
+extrinsics from the camera : ...
+problem: can't calibrate camera, not a good method and very hard
+
+
+2º method, discover using camera and laser scanner
+need: 
+values from the image of the camera
+laser scanner values
+fusion of sensor data
+
+points: best way to find the world coordinates, faster and with less math
+
