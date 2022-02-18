@@ -1,0 +1,8 @@
+I need to put a camera in the back of the robot (priority for now)
+Things to change in the code:
+The robot will not follow a PoseStamped created by me
+create the centroid of the object that he needs to catch (as well as the others)
+we need to use the formulas given by the vision classes to change that point to a x,y location 
+with that the robot can follow the goal
+create arguments to choose manual mode and auto mode
+create a mask also for the obstacles (or maybe I only need the Laser scanner for that? Will see)
