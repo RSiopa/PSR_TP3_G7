@@ -50,24 +50,30 @@ class Driver:
         for idx, x in enumerate(red_names):
             if self.name == x:
                 print('I am ' + str(self.name) + ' I am team red. I am hunting' + str(green_names) + 'and fleeing from' + str(blue_names))
-                self.attacker_color_min = (0, 0, 120)
-                self.attacker_color_max = (31, 31, 255)
+                self.attacker_color_min = (120, 0, 0)
+                self.attacker_color_max = (255, 31, 31)
                 self.prey_color_min = (0, 100, 0)
                 self.prey_color_max = (31, 255, 31)
-                self.teammate_color_min = (120, 0, 0)
-                self.teammate_color_max = (255, 31, 31)
+                self.teammate_color_min = (0, 0, 100)
+                self.teammate_color_max = (31, 31, 255)
 
             elif self.name == green_names[idx]:
                 print('I am ' + str(self.name) + ' I am team green. I am hunting' + str(blue_names) + 'and fleeing from' + str(red_names))
-                self.prey_color = np.array([0, 0, 255], dtype="uint8")
-                self.attacker_color = np.array([236, 0, 0, 255, 31, 31], dtype="uint8")
-                self.teammate_color = np.array([0, 255, 0], dtype="uint8")
+                self.prey_color_min = (120, 0, 0)
+                self.prey_color_max = (255, 31, 31)
+                self.teammate_color_min = (0, 100, 0)
+                self.teammate_color_max = (31, 255, 31)
+                self.attacker_color_min = (0, 0, 100)
+                self.attacker_color_max = (31, 31, 255)
 
             elif self.name == blue_names[idx]:
                 print('I am ' + str(self.name) + ' I am team blue. I am hunting' + str(red_names) + 'and fleeing from' + str(green_names))
-                self.prey_color = np.array([255, 0, 0], dtype="uint8")
-                self.attacker_color = np.array([0, 255, 0], dtype="uint8")
-                self.teammate_color = np.array([0, 0, 255], dtype="uint8")
+                self.teammate_color_min = (120, 0, 0)
+                self.teammate_color_max = (255, 31, 31)
+                self.attacker_color_min = (0, 100, 0)
+                self.attacker_color_max = (31, 255, 31)
+                self.prey_color_min = (0, 0, 100)
+                self.prey_color_max = (31, 31, 255)
             else:
                 pass
 
@@ -192,7 +198,7 @@ class Driver:
         mask_final = mask_attacker + mask_prey + mask_teammate
         image = cv2.bitwise_or(frame, frame, mask=mask_final)
 
-        return image
+        return frame
 
 
 
