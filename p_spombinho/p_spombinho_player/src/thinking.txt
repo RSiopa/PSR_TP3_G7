@@ -39,3 +39,17 @@ problems: easy, fast (idk about precise) OR CAMERA IS NOT DEPTH, DOESN'T WORK
 
 https://answers.ros.org/question/28957/calibrate-gazebo-camera/ extrinsics are not needed in gazebo, we already know the pose of the camera
 
+fuse the Lidar data with the camera, how?
+transform the lidar points to pixels
+use the camera centroid and see the closest Lidar point
+change that point back to the world coordinates
+
+% other method:
+change the camera centroid to world point and detect closest lidar point
+the advantage its that we don't need to transform the points 2 times.
+
+that points are going to send a marker array to rviz !
+
+
+
+
