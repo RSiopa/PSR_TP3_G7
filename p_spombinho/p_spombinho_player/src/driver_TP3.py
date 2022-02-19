@@ -184,15 +184,15 @@ class Driver:
 
     def discover_car(self, frame):
         # Convert to HSV
-        grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # create 3 channels !
-        grey = cv2.merge((grey, grey, grey))
+        gray = cv2.merge((gray, gray, gray))
         mask_attacker = cv2.inRange(frame, self.attacker_color_min, self.attacker_color_max)
         mask_prey = cv2.inRange(frame, self.prey_color_min, self.prey_color_max)
         mask_teammate = cv2.inRange(frame, self.teammate_color_min, self.teammate_color_max)
         mask_final = mask_attacker + mask_prey + mask_teammate
         image = cv2.bitwise_or(frame, frame, mask=mask_final)
-        image = cv2.add(grey,image)
+        image = cv2.add(gray,image)
 
         return image
 
