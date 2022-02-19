@@ -38,9 +38,10 @@ class Driver:
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallBack)
         self.whichTeam()
         self.br = CvBridge()
-        # self.image_subscriber_front = rospy.Subscriber(self.node + '/camera/rgb/image_raw', Image, self.GetImagePrey)
-        self.image_subscriber_back = rospy.Subscriber(self.node + '/camera_back/rgb/image_raw', Image, self.GetImageAttacker)
-
+        self.image_subscriber_front = message_filters.Subscriber(self.node + '/camera/rgb/image_raw', Image)
+        self.image_subscriber_back = message_filters.Subscriber(self.node + '/camera_back/rgb/image_raw', Image)
+        ts = message_filters.TimeSynchronizer([self.image_subscriber_front, self.image_subscriber_back], 1)
+        ts.registerCallback(self.GetImagePrey)
 
 
     def whichTeam(self):
@@ -162,45 +163,38 @@ class Driver:
 
         return angle, speed
 
-    def GetImagePrey(self, data):
+    def GetImagePrey(self, data_front, data_back):
         rospy.loginfo('Image received...')
-        image = self.br.imgmsg_to_cv2(data, "bgr8")
+        image_front = self.br.imgmsg_to_cv2(data_front, "bgr8")
+        image_back = self.br.imgmsg_to_cv2(data_back, "bgr8")
+
         # Convert the image to a Numpy array since most cv2 functions
 
         # require Numpy arrays.
-        frame = np.array(image, dtype=np.uint8)
+        frame_front = np.array(image_front, dtype=np.uint8)
+        frame_back = np.array(image_back, dtype=np.uint8)
 
         # Process the frame using the process_image() function
         # value for red cars
-        display_image = self.discover_car(frame)
-        cv2.imshow('front', display_image)
-        cv2.waitKey(1)
-
-    def GetImageAttacker(self, data):
-        rospy.loginfo('Image received...')
-        image = self.br.imgmsg_to_cv2(data, "bgr8")
-        # Convert the image to a Numpy array since most cv2 functions
-
-        # require Numpy arrays.
-        frame = np.array(image, dtype=np.uint8)
-
-        # Process the frame using the process_image() function
-        display_image = self.discover_car(frame)
-        cv2.imshow('back', display_image)
+        display_image_front = self.discover_car(frame_front)
+        display_image_back = self.discover_car(frame_back)
+        cv2.imshow('front', display_image_front)
+        cv2.imshow('back', display_image_back)
         cv2.waitKey(1)
 
     def discover_car(self, frame):
         # Convert to HSV
         grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # create 3 channels !
+        grey = cv2.merge((grey, grey, grey))
         mask_attacker = cv2.inRange(frame, self.attacker_color_min, self.attacker_color_max)
         mask_prey = cv2.inRange(frame, self.prey_color_min, self.prey_color_max)
         mask_teammate = cv2.inRange(frame, self.teammate_color_min, self.teammate_color_max)
         mask_final = mask_attacker + mask_prey + mask_teammate
         image = cv2.bitwise_or(frame, frame, mask=mask_final)
+        image = cv2.add(grey,image)
 
-        return frame
-
-
+        return image
 
 def main():
     rospy.init_node('p_spombinho_driver', anonymous=False)
