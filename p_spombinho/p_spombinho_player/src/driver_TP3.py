@@ -4,6 +4,8 @@ import math
 
 import numpy as np
 import rospy
+# VERY IMPORTANT TO SUBSCRIBE TO MULTIPLE TOPICS
+import message_filters
 import tf2_ros
 from geometry_msgs.msg import Twist, PoseStamped
 from sensor_msgs.msg import Image
@@ -20,15 +22,25 @@ class Driver:
         self.name = self.node[1:len(self.node)]
         self.goal = PoseStamped
         self.goal_active = False
+        # colors inicialization ----------------
+        self.attacker_color_min = (0, 0, 239)
+        self.attacker_color_max = (31, 31, 255)
+        self.prey_color_min = (0, 239, 0)
+        self.prey_color_max = (31, 255, 31)
+        self.teammate_color_min = (236, 0, 0)
+        self.teammate_color_max = (255, 31, 31)
+        # ---------------------------------
         self.tf_buffer = tf2_ros.Buffer()
         self.listener = tf2_ros.TransformListener(self.tf_buffer)
         self.publisher_command = rospy.Publisher(str(self.node) + '/cmd_vel', Twist, queue_size=1)
+        # sees the goal 0.1s at a time
         self.timer = rospy.Timer(rospy.Duration(0.1), self.sendCommandCallback)
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallBack)
         self.whichTeam()
         self.br = CvBridge()
-        self.image_subscriber_front = rospy.Subscriber(self.node + '/camera/rgb/image_raw', Image, self.GetImagePrey)
-        # self.image_subscriber_back = rospy.Subscriber('/' + self.name + '/camera_back/rgb/image_raw', Image, self.GetImageAttacker)
+        # self.image_subscriber_front = rospy.Subscriber(self.node + '/camera/rgb/image_raw', Image, self.GetImagePrey)
+        self.image_subscriber_back = rospy.Subscriber(self.node + '/camera_back/rgb/image_raw', Image, self.GetImageAttacker)
+
 
 
     def whichTeam(self):
@@ -38,10 +50,24 @@ class Driver:
         for idx, x in enumerate(red_names):
             if self.name == x:
                 print('I am ' + str(self.name) + ' I am team red. I am hunting' + str(green_names) + 'and fleeing from' + str(blue_names))
+                self.attacker_color_min = (0, 0, 120)
+                self.attacker_color_max = (31, 31, 255)
+                self.prey_color_min = (0, 100, 0)
+                self.prey_color_max = (31, 255, 31)
+                self.teammate_color_min = (120, 0, 0)
+                self.teammate_color_max = (255, 31, 31)
+
             elif self.name == green_names[idx]:
                 print('I am ' + str(self.name) + ' I am team green. I am hunting' + str(blue_names) + 'and fleeing from' + str(red_names))
+                self.prey_color = np.array([0, 0, 255], dtype="uint8")
+                self.attacker_color = np.array([236, 0, 0, 255, 31, 31], dtype="uint8")
+                self.teammate_color = np.array([0, 255, 0], dtype="uint8")
+
             elif self.name == blue_names[idx]:
                 print('I am ' + str(self.name) + ' I am team blue. I am hunting' + str(red_names) + 'and fleeing from' + str(green_names))
+                self.prey_color = np.array([255, 0, 0], dtype="uint8")
+                self.attacker_color = np.array([0, 255, 0], dtype="uint8")
+                self.teammate_color = np.array([0, 0, 255], dtype="uint8")
             else:
                 pass
 
@@ -139,15 +165,35 @@ class Driver:
         frame = np.array(image, dtype=np.uint8)
 
         # Process the frame using the process_image() function
-        display_image = self.process_image(frame)
-        cv2.imshow('prey', frame)
-        cv2.waitKey(0.01)
+        # value for red cars
+        display_image = self.discover_car(frame)
+        cv2.imshow('front', display_image)
+        cv2.waitKey(1)
 
-    def process_image(self, frame):
+    def GetImageAttacker(self, data):
+        rospy.loginfo('Image received...')
+        image = self.br.imgmsg_to_cv2(data, "bgr8")
+        # Convert the image to a Numpy array since most cv2 functions
+
+        # require Numpy arrays.
+        frame = np.array(image, dtype=np.uint8)
+
+        # Process the frame using the process_image() function
+        display_image = self.discover_car(frame)
+        cv2.imshow('back', display_image)
+        cv2.waitKey(1)
+
+    def discover_car(self, frame):
         # Convert to HSV
-        grey = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
+        grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        mask_attacker = cv2.inRange(frame, self.attacker_color_min, self.attacker_color_max)
+        mask_prey = cv2.inRange(frame, self.prey_color_min, self.prey_color_max)
+        mask_teammate = cv2.inRange(frame, self.teammate_color_min, self.teammate_color_max)
+        mask_final = mask_attacker + mask_prey + mask_teammate
+        image = cv2.bitwise_or(frame, frame, mask=mask_final)
 
-        return grey
+        return image
+
 
 
 def main():
