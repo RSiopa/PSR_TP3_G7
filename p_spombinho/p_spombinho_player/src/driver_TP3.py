@@ -8,7 +8,7 @@ import rospy
 import message_filters
 import tf2_ros
 from geometry_msgs.msg import Twist, PoseStamped
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import *
 from cv_bridge import CvBridge
 import cv2
 import tf2_geometry_msgs # Do not use geometry_msgs. Use this for PoseStamped (depois perguntar porque)
@@ -17,9 +17,10 @@ import tf2_geometry_msgs # Do not use geometry_msgs. Use this for PoseStamped (d
 class Driver:
 
     def __init__(self):
-        # Define the goal to which the robot should move
+        # name of the car with \ and without
         self.node = rospy.get_name()
         self.name = self.node[1:len(self.node)]
+        # Define the goal to which the robot should move
         self.goal = PoseStamped
         self.goal_active = False
         # colors inicialization ----------------
@@ -32,12 +33,25 @@ class Driver:
         # ---------------------------------
         self.tf_buffer = tf2_ros.Buffer()
         self.listener = tf2_ros.TransformListener(self.tf_buffer)
+        # publishes the velocity of the car
         self.publisher_command = rospy.Publisher(str(self.node) + '/cmd_vel', Twist, queue_size=1)
         # sees the goal 0.1s at a time
         self.timer = rospy.Timer(rospy.Duration(0.1), self.sendCommandCallback)
+        # subscribes to see if theres a goal ( this part is going to be changed to the value )
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallBack)
+        # sees the team of the car
         self.whichTeam()
         self.br = CvBridge()
+        # initialization of the list of laser scan points
+        self.points = []
+        # subscribe to the laser scan values
+        self.laser_subscriber = rospy.Subscriber(self.node + '/scan', LaserScan, self.Laser_To_Image)
+        # Get the camera info, in this case is better in static values since the cameras have all the same values
+        self.cameraIntrinsic = [1060.9338813153618, 0.0, 640.5, -74.26537169207533,
+                                0.0, 1060.9338813153618, 360.5, 0.0,
+                                0.0, 0.0, 1.0, 0.0]
+
+        # subscribes to the back and front images of the car
         self.image_subscriber_front = message_filters.Subscriber(self.node + '/camera/rgb/image_raw', Image)
         self.image_subscriber_back = message_filters.Subscriber(self.node + '/camera_back/rgb/image_raw', Image)
         ts = message_filters.TimeSynchronizer([self.image_subscriber_front, self.image_subscriber_back], 1)
@@ -134,9 +148,9 @@ class Driver:
 
     def driveStraight(self, goal, minimum_speed=0.1, maximum_speed=1.0):
         """
-        :param goal:
-        :param minimum_speed:
-        :param maximum_speed:
+        :param goal: where the robot wants to go
+        :param minimum_speed: min speed the robot can go
+        :param maximum_speed: max speed the robot can go
         :return: the angle and speed to use as command
         """
         goal_present_time = copy.deepcopy(goal)
@@ -175,9 +189,10 @@ class Driver:
         frame_back = np.array(image_back, dtype=np.uint8)
 
         # Process the frame using the process_image() function
-        # value for red cars
         display_image_front = self.discover_car(frame_front)
         display_image_back = self.discover_car(frame_back)
+        # with this we can see the red, blue and green cars
+        #TODO: CREATE HERE A ARGUMENT TO SEE OR NOT THE IMAGES
         cv2.imshow('front', display_image_front)
         cv2.imshow('back', display_image_back)
         cv2.waitKey(1)
@@ -190,11 +205,35 @@ class Driver:
         mask_attacker = cv2.inRange(frame, self.attacker_color_min, self.attacker_color_max)
         mask_prey = cv2.inRange(frame, self.prey_color_min, self.prey_color_max)
         mask_teammate = cv2.inRange(frame, self.teammate_color_min, self.teammate_color_max)
+        self.sensor_fusion(mask_attacker, mask_prey, mask_teammate, self.points)
         mask_final = mask_attacker + mask_prey + mask_teammate
         image = cv2.bitwise_or(frame, frame, mask=mask_final)
-        image = cv2.add(gray,image)
+        image = cv2.add(gray, image)
 
         return image
+
+    def sensor_fusion(self, attacker, prey, teammate, lidar_points):
+        '''
+        :param attacker: attacker points from the camera
+        :param prey: prey points from the camera
+        :param teammate: teammate points from the camera
+        :param lidar_points: points received by the lidar
+        :return:
+        '''
+
+    def Laser_To_Image(self, msg):
+        '''
+        :param msg: scan data received from the car
+        :return:
+        '''
+        # creates a list of world coordinates
+        z = 0
+        for idx, range in enumerate(msg.ranges):
+            theta = msg.angle_min + idx * msg.angle_increment
+            x = range * math.cos(theta)
+            y = range * math.sin(theta)
+            self.points.append([x, y, z])
+
 
 def main():
     rospy.init_node('p_spombinho_driver', anonymous=False)
