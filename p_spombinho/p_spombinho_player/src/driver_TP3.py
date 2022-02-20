@@ -45,11 +45,21 @@ class Driver:
         # initialization of the list of laser scan points
         self.points = []
         # subscribe to the laser scan values
-        self.laser_subscriber = rospy.Subscriber(self.node + '/scan', LaserScan, self.Laser_To_Image)
+        self.laser_subscriber = rospy.Subscriber(self.node + '/scan', LaserScan, self.Laser_Points)
         # Get the camera info, in this case is better in static values since the cameras have all the same values
         self.cameraIntrinsic = [1060.9338813153618, 0.0, 640.5, -74.26537169207533,
                                 0.0, 1060.9338813153618, 360.5, 0.0,
                                 0.0, 0.0, 1.0, 0.0]
+        # camera extrinsic from the lidar to the camera (back and front are diferent extrinsic values )
+        self.cameraExtrinsicFront = [1.0, 0.0, 0.0, -0.073,
+                                     0.0, 1.0, 0.0, 0.011,
+                                     0.0, 0.0, 1.0, -0.084,
+                                     0.0, 0.0, 0.0, 1.0]
+
+        self.cameraExtrinsicBack = [-1.0, 0.0, 0.0, 0.2,
+                                     0.0, -1.0, 0.0, 0.011,
+                                     0.0, 0.0, 1.0, -0.084,
+                                     0.0, 0.0, 0.0, 1.0]
 
         # subscribes to the back and front images of the car
         self.image_subscriber_front = message_filters.Subscriber(self.node + '/camera/rgb/image_raw', Image)
@@ -221,7 +231,7 @@ class Driver:
         :return:
         '''
 
-    def Laser_To_Image(self, msg):
+    def Laser_Points(self, msg):
         '''
         :param msg: scan data received from the car
         :return:
