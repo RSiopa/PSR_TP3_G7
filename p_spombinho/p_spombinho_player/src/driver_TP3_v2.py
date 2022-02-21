@@ -48,30 +48,24 @@ class Driver:
         self.br = CvBridge()
         # initialization of the list of laser scan points
         self.points = []
+        self.wp_to_pixels = []
         # subscribe to the laser scan values
         self.laser_subscriber = rospy.Subscriber(self.node + '/scan', LaserScan, self.Laser_Points)
         # Get the camera info, in this case is better in static values since the cameras have all the same values
-        self.cameraIntrinsic = np.array([[1060.9338813153618, 0.0, 640.5, -74.26537169207533],
-                                        [0.0, 1060.9338813153618, 360.5, 0.0],
-                                        [0.0, 0.0, 1.0, 0.0],
-                                         [0.0, 0.0, 0.0, 1.0]])
+        self.cameraIntrinsic = np.array([[1060.9338813153618, 0.0, 640.5],
+                                        [0.0, 1060.9338813153618, 360.5],
+                                        [0.0, 0.0, 1.0]])
+
         # camera extrinsic from the lidar to the camera (back and front are diferent extrinsic values )
-        self.cameraExtrinsicFront = np.array([[1.0, 0.0, 0.0, -0.137],
-                                             [0.0, 1.0, 0.0, 0.011],
-                                             [0.0, 0.0, 1.0, -0.038],
-                                             [0.0, 0.0, 0.0, 1.0]])
+        # this is the value from camera_rgb_optical_frame to scan
+        self.lidar2cam = np.array([[0.0006, -1.0, -0.0008, -0.0],
+                                  [0.0006, 0.0008, -1.0, -0.029],
+                                  [1.0, 0.0006, 0.0006, -0.140]])
 
-        self.cameraExtrinsicBack = np.array([[-1.0, 0.0, 0.0, -0.136],
-                                            [0.0, -1.0, 0.0, -0.011],
-                                            [0.0, 0.0, 1.0, -0.038],
-                                            [0.0, 0.0, 0.0, 1.0]])
+        self.lidar2cam_back = np.array([[-0.0027, 1.0, -0.0002, 0.022],
+                                        [-0.0009, -0.0002, -1.0, -0.029],
+                                        [-1.0, -0.0027, 0.0009, -0.139]])
 
-        self.camera_model = image_geometry.PinholeCameraModel()
-        self.camera_model_back = image_geometry.PinholeCameraModel()
-        self.camera_info = rospy.Subscriber(self.node + '/camera/rgb/camera_info', CameraInfo, self.GetCameraInfo)
-        self.camera_info_back = rospy.Subscriber(self.node + '/camera_back/rgb/camera_info', CameraInfo, self.GetCameraInfo_back)
-        self.camera_matrixfront = np.dot(self.cameraIntrinsic, self.cameraExtrinsicFront)
-        self.camera_matrixback = np.dot(self.cameraIntrinsic, self.cameraExtrinsicBack)
         # subscribes to the back and front images of the car
         self.image_subscriber_front = message_filters.Subscriber(self.node + '/camera/rgb/image_raw', Image)
         self.image_subscriber_back = message_filters.Subscriber(self.node + '/camera_back/rgb/image_raw', Image)
@@ -210,15 +204,15 @@ class Driver:
         frame_back = np.array(image_back, dtype=np.uint8)
 
         # Process the frame using the process_image() function
-        display_image_front = self.discover_car(frame_front, self.camera_model)
-        display_image_back = self.discover_car(frame_back, self.camera_model_back)
+        display_image_front = self.discover_car(frame_front, self.lidar2cam)
+        display_image_back = self.discover_car(frame_back, self.lidar2cam_back)
         # with this we can see the red, blue and green cars
         #TODO: CREATE HERE A ARGUMENT TO SEE OR NOT THE IMAGES
         cv2.imshow('front', display_image_front)
         cv2.imshow('back', display_image_back)
         cv2.waitKey(1)
 
-    def discover_car(self, frame, camera_model):
+    def discover_car(self, frame, camera_matrix):
         # Convert to HSV
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # create 3 channels !
@@ -228,7 +222,7 @@ class Driver:
         mask_teammate = cv2.inRange(frame, self.teammate_color_min, self.teammate_color_max)
 
         # get the transform the lidar values to pixel
-        pixels_cloud = self.sensor_fusion(camera_model)
+        pixel_cloud = self.lidar_to_image(camera_matrix)
         # creates the image
         mask_final = mask_attacker + mask_prey + mask_teammate
         image = cv2.bitwise_or(frame, frame, mask=mask_final)
@@ -237,17 +231,14 @@ class Driver:
         (cx_t, cy_t) = self.GetCentroid(mask_teammate, image)
         (cx_p, cy_p) = self.GetCentroid(mask_prey, image)
         (cx_a, cy_a) = self.GetCentroid(mask_attacker, image)
-        # TODO: only a marker done, do the rest
-        pixel_to_xyz = camera_model.projectPixelTo3dRay((cx_p, cx_p))
-        # quando isto estiver bem, so é necessário por este valor como goal!
-        # pixel_to_xyz = np.dot(np.linalg.inv(self.camera_matrixback), np.array([pixel_to_xyz[0],pixel_to_xyz[1], pixel_to_xyz[2], 0]).transpose())
-        self.sendMarker(pixel_to_xyz)
+        self.wp_to_pixels = []
         # TODO: the values are wrong
         # draws the lidar points in the image
-        for value in pixels_cloud:
+        for value in pixel_cloud:
             if math.isnan(value[0]) is False:
-                image = cv2.circle(image, (int(value[0]), int(value[1])), radius=0, color=(0, 125, 125), thickness=3)
-
+                world_pixels = [value[0]/value[2], value[1]/value[2], value[2]]
+                image = cv2.circle(image, (int(world_pixels[0]), int(world_pixels[1])), radius=0, color=(0, 200, 125), thickness=6)
+                self.wp_to_pixels.append(world_pixels)
 
         return image
 
@@ -270,18 +261,17 @@ class Driver:
         marker.pose.position.z = 0.2
         self.publish_marker.publish(marker)
 
-    def sensor_fusion(self, camera_model):
+    def lidar_to_image(self, camera_matrix):
         """
-        :param camera_model: attacker points from the camera
+        :param camera_matrix: attacker points from the camera
         :return:
         """
         # so testar os valores front por agora
-
         pixel_cloud =[]
         for value in self.points:
             value_array = np.array(value)
-            # lidar_matrix = np.dot(camera_matrix, value_array.transpose())
-            pixel = camera_model.project3dToPixel((value_array[0], value_array[1], value_array[2]))
+            pixel = np.dot(camera_matrix, value_array.transpose())
+            pixel = np.dot(self.cameraIntrinsic, pixel)
             pixel_cloud.append(pixel)
 
         return pixel_cloud
@@ -291,7 +281,6 @@ class Driver:
         :param msg: scan data received from the car
         :return:
         """
-        # (0.017685947579663273, 0.2716380153902128, 0.9622369748939581)
 
         # creates a list of world coordinates
         z = 0
@@ -312,17 +301,15 @@ class Driver:
             # sends an impossible value that doesnt
             return -100, -100
 
-    def GetCameraInfo(self, data):
-        # gets the values from the camera to the camera model
-        # cameras dont have the same values, trying only front for now
-        self.camera_model.fromCameraInfo(data)
-        self.camera_info.unregister()  # Only subscribe once
+    # def getTransform(self):
+    #     from_frame = self.name + '/camera_rgb_optical_frame'
+    #     to_frame = self.name + '/scan'
+    #     try:
+    #         self.lidar2cam = self.tf_buffer.lookup_transform(from_frame, to_frame, rospy.Time.now(), rospy.Duration(1.0))
+    #     except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+    #         rospy.logerr('Could not find the transformed')
 
-    def GetCameraInfo_back(self, data):
-        # gets the values from the camera to the camera model
-        # cameras dont have the same values, trying only front for now
-        self.camera_model_back.fromCameraInfo(data)
-        self.camera_info_back.unregister()  # Only subscribe once
+
 
 
 def main():
