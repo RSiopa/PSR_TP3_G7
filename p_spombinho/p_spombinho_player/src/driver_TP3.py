@@ -239,6 +239,8 @@ class Driver:
         (cx_a, cy_a) = self.GetCentroid(mask_attacker, image)
         # TODO: only a marker done, do the rest
         pixel_to_xyz = camera_model.projectPixelTo3dRay((cx_p, cx_p))
+        pixel_to_xyz = np.dot(np.linalg.inv(camera_model.intrinsicMatrix()), np.array([pixel_to_xyz]).transpose())
+        print(pixel_to_xyz)
         self.sendMarker(pixel_to_xyz)
 
         # TODO: the values are wrong
@@ -264,9 +266,9 @@ class Driver:
         marker.color.b = 0
         marker.color.a = 1.0
         marker.pose.orientation.w = 1.0
-        marker.pose.position.x = coord[0]*100
-        marker.pose.position.y = coord[1]*100
-        marker.pose.position.z = 0
+        marker.pose.position.x = coord[0]/coord[2]
+        marker.pose.position.y = coord[1]/coord[2]
+        marker.pose.position.z = 0.2
         self.publish_marker.publish(marker)
 
     def sensor_fusion(self, camera_model):
@@ -290,6 +292,8 @@ class Driver:
         :param msg: scan data received from the car
         :return:
         """
+        # (0.017685947579663273, 0.2716380153902128, 0.9622369748939581)
+
         # creates a list of world coordinates
         z = 0
         for idx, range in enumerate(msg.ranges):
