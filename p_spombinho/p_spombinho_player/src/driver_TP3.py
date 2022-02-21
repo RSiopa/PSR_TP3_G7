@@ -47,20 +47,22 @@ class Driver:
         # subscribe to the laser scan values
         self.laser_subscriber = rospy.Subscriber(self.node + '/scan', LaserScan, self.Laser_Points)
         # Get the camera info, in this case is better in static values since the cameras have all the same values
-        self.cameraIntrinsic = [1060.9338813153618, 0.0, 640.5, -74.26537169207533,
-                                0.0, 1060.9338813153618, 360.5, 0.0,
-                                0.0, 0.0, 1.0, 0.0]
+        self.cameraIntrinsic = np.array([[1060.9338813153618, 0.0, 640.5, -74.26537169207533],
+                                        [0.0, 1060.9338813153618, 360.5, 0.0],
+                                        [0.0, 0.0, 1.0, 0.0]])
         # camera extrinsic from the lidar to the camera (back and front are diferent extrinsic values )
-        self.cameraExtrinsicFront = [1.0, 0.0, 0.0, -0.073,
-                                     0.0, 1.0, 0.0, 0.011,
-                                     0.0, 0.0, 1.0, -0.084,
-                                     0.0, 0.0, 0.0, 1.0]
+        self.cameraExtrinsicFront = np.array([[1.0, 0.0, 0.0, -0.073],
+                                             [0.0, 1.0, 0.0, 0.011],
+                                             [0.0, 0.0, 1.0, -0.084],
+                                             [0.0, 0.0, 0.0, 1.0]])
 
-        self.cameraExtrinsicBack = [-1.0, 0.0, 0.0, 0.2,
-                                     0.0, -1.0, 0.0, 0.011,
-                                     0.0, 0.0, 1.0, -0.084,
-                                     0.0, 0.0, 0.0, 1.0]
+        self.cameraExtrinsicBack = np.array([[-1.0, 0.0, 0.0, 0.2],
+                                            [0.0, -1.0, 0.0, 0.011],
+                                            [0.0, 0.0, 1.0, -0.084],
+                                            [0.0, 0.0, 0.0, 1.0]])
 
+        self.camera_matrixfront = np.dot(self.cameraIntrinsic, self.cameraExtrinsicFront)
+        self.camera_matrixback = np.dot(self.cameraIntrinsic, self.cameraExtrinsicBack)
         # subscribes to the back and front images of the car
         self.image_subscriber_front = message_filters.Subscriber(self.node + '/camera/rgb/image_raw', Image)
         self.image_subscriber_back = message_filters.Subscriber(self.node + '/camera_back/rgb/image_raw', Image)
@@ -188,7 +190,7 @@ class Driver:
         return angle, speed
 
     def GetImagePrey(self, data_front, data_back):
-        rospy.loginfo('Image received...')
+        # rospy.loginfo('Image received...')
         image_front = self.br.imgmsg_to_cv2(data_front, "bgr8")
         image_back = self.br.imgmsg_to_cv2(data_back, "bgr8")
 
@@ -199,15 +201,15 @@ class Driver:
         frame_back = np.array(image_back, dtype=np.uint8)
 
         # Process the frame using the process_image() function
-        display_image_front = self.discover_car(frame_front)
-        display_image_back = self.discover_car(frame_back)
+        display_image_front = self.discover_car(frame_front, self.camera_matrixfront)
+        display_image_back = self.discover_car(frame_back, self.camera_matrixback)
         # with this we can see the red, blue and green cars
         #TODO: CREATE HERE A ARGUMENT TO SEE OR NOT THE IMAGES
         cv2.imshow('front', display_image_front)
         cv2.imshow('back', display_image_back)
         cv2.waitKey(1)
 
-    def discover_car(self, frame):
+    def discover_car(self, frame, matrix_camera):
         # Convert to HSV
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # create 3 channels !
@@ -215,21 +217,35 @@ class Driver:
         mask_attacker = cv2.inRange(frame, self.attacker_color_min, self.attacker_color_max)
         mask_prey = cv2.inRange(frame, self.prey_color_min, self.prey_color_max)
         mask_teammate = cv2.inRange(frame, self.teammate_color_min, self.teammate_color_max)
-        self.sensor_fusion(mask_attacker, mask_prey, mask_teammate, self.points)
+        lidar_points = self.sensor_fusion(matrix_camera)
         mask_final = mask_attacker + mask_prey + mask_teammate
         image = cv2.bitwise_or(frame, frame, mask=mask_final)
         image = cv2.add(gray, image)
+        for value in lidar_points:
+            if math.isnan(value[0]) is False:
+                image = cv2.circle(image, (int(value[0]/value[2]), int(value[1]/value[2])), radius=0, color=(0, 125, 125), thickness=3)
+                # print(int(value[0]), int(value[1]))
+                print(value[2])
+                #print(self.camera_matrixfront)
 
         return image
 
-    def sensor_fusion(self, attacker, prey, teammate, lidar_points):
+    def sensor_fusion(self, camera_matrix):
         '''
-        :param attacker: attacker points from the camera
-        :param prey: prey points from the camera
-        :param teammate: teammate points from the camera
-        :param lidar_points: points received by the lidar
+        :param camera_matrix: attacker points from the camera
         :return:
         '''
+        # so testar os valores front por agora
+
+        lidar_values =[]
+        #TODO: FIX THIS SHIT, NUMBERS WRONG
+        for value in self.points:
+            value_array = np.array(value)
+            lidar_matrix = np.dot(camera_matrix, value_array.transpose())
+            # remove the trash values
+            lidar_values.append(lidar_matrix)
+
+        return lidar_values
 
     def Laser_Points(self, msg):
         '''
@@ -237,12 +253,13 @@ class Driver:
         :return:
         '''
         # creates a list of world coordinates
-        z = 0
+        z = 1
         for idx, range in enumerate(msg.ranges):
             theta = msg.angle_min + idx * msg.angle_increment
             x = range * math.cos(theta)
             y = range * math.sin(theta)
-            self.points.append([x, y, z])
+            self.points.append([x, y, z, 1])
+            # print(x,y)
 
 
 def main():
