@@ -239,6 +239,7 @@ class Driver:
         (cx_a, cy_a) = self.GetCentroid(mask_attacker, image)
         # TODO: only a marker done, do the rest
         pixel_to_xyz = camera_model.projectPixelTo3dRay((cx_p, cx_p))
+        # quando isto estiver bem, so é necessário por este valor como goal!
         # pixel_to_xyz = np.dot(np.linalg.inv(self.camera_matrixback), np.array([pixel_to_xyz[0],pixel_to_xyz[1], pixel_to_xyz[2], 0]).transpose())
         self.sendMarker(pixel_to_xyz)
         # TODO: the values are wrong
@@ -264,8 +265,8 @@ class Driver:
         marker.color.b = 0
         marker.color.a = 1.0
         marker.pose.orientation.w = 1.0
-        marker.pose.position.x = coord[0]/coord[2]
-        marker.pose.position.y = coord[1]/coord[2]
+        marker.pose.position.x = coord[0] + 0.2
+        marker.pose.position.y = coord[1] + 0.011
         marker.pose.position.z = 0.2
         self.publish_marker.publish(marker)
 
