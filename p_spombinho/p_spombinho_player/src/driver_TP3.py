@@ -2,6 +2,7 @@
 import copy
 import math
 
+import image_geometry
 import numpy as np
 import rospy
 # VERY IMPORTANT TO SUBSCRIBE TO MULTIPLE TOPICS
@@ -10,6 +11,7 @@ import tf2_ros
 from geometry_msgs.msg import Twist, PoseStamped
 from sensor_msgs.msg import *
 from cv_bridge import CvBridge
+from visualization_msgs.msg import *
 import cv2
 import tf2_geometry_msgs # Do not use geometry_msgs. Use this for PoseStamped (depois perguntar porque)
 
@@ -33,6 +35,8 @@ class Driver:
         # ---------------------------------
         self.tf_buffer = tf2_ros.Buffer()
         self.listener = tf2_ros.TransformListener(self.tf_buffer)
+        # publishes the marker of the cars
+        self.publish_marker = rospy.Publisher(self.node + '/Markers', Marker, queue_size=1)
         # publishes the velocity of the car
         self.publisher_command = rospy.Publisher(str(self.node) + '/cmd_vel', Twist, queue_size=1)
         # sees the goal 0.1s at a time
@@ -61,6 +65,10 @@ class Driver:
                                             [0.0, 0.0, 1.0, -0.084],
                                             [0.0, 0.0, 0.0, 1.0]])
 
+        self.camera_model = image_geometry.PinholeCameraModel()
+        self.camera_model_back = image_geometry.PinholeCameraModel()
+        self.camera_info = rospy.Subscriber(self.node + '/camera/rgb/camera_info', CameraInfo, self.GetCameraInfo)
+        self.camera_info_back = rospy.Subscriber(self.node + '/camera_back/rgb/camera_info', CameraInfo, self.GetCameraInfo_back)
         self.camera_matrixfront = np.dot(self.cameraIntrinsic, self.cameraExtrinsicFront)
         self.camera_matrixback = np.dot(self.cameraIntrinsic, self.cameraExtrinsicBack)
         # subscribes to the back and front images of the car
@@ -201,15 +209,15 @@ class Driver:
         frame_back = np.array(image_back, dtype=np.uint8)
 
         # Process the frame using the process_image() function
-        display_image_front = self.discover_car(frame_front, self.camera_matrixfront)
-        display_image_back = self.discover_car(frame_back, self.camera_matrixback)
+        display_image_front = self.discover_car(frame_front, self.camera_model)
+        display_image_back = self.discover_car(frame_back, self.camera_model_back)
         # with this we can see the red, blue and green cars
         #TODO: CREATE HERE A ARGUMENT TO SEE OR NOT THE IMAGES
         cv2.imshow('front', display_image_front)
         cv2.imshow('back', display_image_back)
         cv2.waitKey(1)
 
-    def discover_car(self, frame, matrix_camera):
+    def discover_car(self, frame, camera_model):
         # Convert to HSV
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # create 3 channels !
@@ -217,49 +225,101 @@ class Driver:
         mask_attacker = cv2.inRange(frame, self.attacker_color_min, self.attacker_color_max)
         mask_prey = cv2.inRange(frame, self.prey_color_min, self.prey_color_max)
         mask_teammate = cv2.inRange(frame, self.teammate_color_min, self.teammate_color_max)
-        lidar_points = self.sensor_fusion(matrix_camera)
+
+
+        # get the transform the lidar values to pixel
+        pixels_cloud = self.sensor_fusion(camera_model)
+        # creates the image
         mask_final = mask_attacker + mask_prey + mask_teammate
         image = cv2.bitwise_or(frame, frame, mask=mask_final)
         image = cv2.add(gray, image)
-        for value in lidar_points:
+        # gives the center of a mask and draws it
+        (cx_t, cy_t) = self.GetCentroid(mask_teammate, image)
+        (cx_p, cy_p) = self.GetCentroid(mask_prey, image)
+        (cx_a, cy_a) = self.GetCentroid(mask_attacker, image)
+        # TODO: only a marker done, do the rest
+        pixel_to_xyz = camera_model.projectPixelTo3dRay((cx_p, cx_p))
+        self.sendMarker(pixel_to_xyz)
+
+        # TODO: the values are wrong
+        # draws the lidar points in the image
+        for value in pixels_cloud:
             if math.isnan(value[0]) is False:
-                image = cv2.circle(image, (int(value[0]/value[2]), int(value[1]/value[2])), radius=0, color=(0, 125, 125), thickness=3)
-                # print(int(value[0]), int(value[1]))
-                print(value[2])
-                #print(self.camera_matrixfront)
+                image = cv2.circle(image, (int(value[0]), int(value[1])), radius=0, color=(0, 125, 125), thickness=3)
+
 
         return image
 
-    def sensor_fusion(self, camera_matrix):
-        '''
-        :param camera_matrix: attacker points from the camera
+    def sendMarker(self, coord):
+        marker = Marker()
+        marker.id = 0
+        marker.header.frame_id = "red1/base_link"
+        marker.type = marker.CYLINDER
+        marker.action = marker.ADD
+        marker.scale.x = 0.2
+        marker.scale.y = 0.2
+        marker.scale.z = 0.2
+        marker.color.r = 1
+        marker.color.g = 0
+        marker.color.b = 0
+        marker.color.a = 1.0
+        marker.pose.orientation.w = 1.0
+        marker.pose.position.x = coord[0]*100
+        marker.pose.position.y = coord[1]*100
+        marker.pose.position.z = 0
+        self.publish_marker.publish(marker)
+
+    def sensor_fusion(self, camera_model):
+        """
+        :param camera_model: attacker points from the camera
         :return:
-        '''
+        """
         # so testar os valores front por agora
 
-        lidar_values =[]
-        #TODO: FIX THIS SHIT, NUMBERS WRONG
+        pixel_cloud =[]
         for value in self.points:
             value_array = np.array(value)
-            lidar_matrix = np.dot(camera_matrix, value_array.transpose())
-            # remove the trash values
-            lidar_values.append(lidar_matrix)
+            # lidar_matrix = np.dot(camera_matrix, value_array.transpose())
+            pixel = camera_model.project3dToPixel((value_array[0], value_array[1], value_array[2]))
+            pixel_cloud.append(pixel)
 
-        return lidar_values
+        return pixel_cloud
 
     def Laser_Points(self, msg):
-        '''
+        """
         :param msg: scan data received from the car
         :return:
-        '''
+        """
         # creates a list of world coordinates
-        z = 1
+        z = 0
         for idx, range in enumerate(msg.ranges):
             theta = msg.angle_min + idx * msg.angle_increment
             x = range * math.cos(theta)
             y = range * math.sin(theta)
             self.points.append([x, y, z, 1])
-            # print(x,y)
+
+    def GetCentroid(self, mask, image):
+        M = cv2.moments(mask)
+        if M["m00"] != 0.0:
+            cX = int(M["m10"] / M["m00"])
+            cY = int(M["m01"] / M["m00"])
+            cv2.circle(image, (cX, cY), 7, (255, 255, 255), -1)
+            return cX, cY
+        else:
+            # sends an impossible value that doesnt
+            return -100, -100
+
+    def GetCameraInfo(self, data):
+        # gets the values from the camera to the camera model
+        # cameras dont have the same values, trying only front for now
+        self.camera_model.fromCameraInfo(data)
+        self.camera_info.unregister()  # Only subscribe once
+
+    def GetCameraInfo_back(self, data):
+        # gets the values from the camera to the camera model
+        # cameras dont have the same values, trying only front for now
+        self.camera_model_back.fromCameraInfo(data)
+        self.camera_info_back.unregister()  # Only subscribe once
 
 
 def main():
