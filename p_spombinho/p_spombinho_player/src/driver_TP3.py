@@ -53,7 +53,8 @@ class Driver:
         # Get the camera info, in this case is better in static values since the cameras have all the same values
         self.cameraIntrinsic = np.array([[1060.9338813153618, 0.0, 640.5, -74.26537169207533],
                                         [0.0, 1060.9338813153618, 360.5, 0.0],
-                                        [0.0, 0.0, 1.0, 0.0]])
+                                        [0.0, 0.0, 1.0, 0.0],
+                                         [0.0, 0.0, 0.0, 1.0]])
         # camera extrinsic from the lidar to the camera (back and front are diferent extrinsic values )
         self.cameraExtrinsicFront = np.array([[1.0, 0.0, 0.0, -0.073],
                                              [0.0, 1.0, 0.0, 0.011],
@@ -226,7 +227,6 @@ class Driver:
         mask_prey = cv2.inRange(frame, self.prey_color_min, self.prey_color_max)
         mask_teammate = cv2.inRange(frame, self.teammate_color_min, self.teammate_color_max)
 
-
         # get the transform the lidar values to pixel
         pixels_cloud = self.sensor_fusion(camera_model)
         # creates the image
@@ -239,10 +239,8 @@ class Driver:
         (cx_a, cy_a) = self.GetCentroid(mask_attacker, image)
         # TODO: only a marker done, do the rest
         pixel_to_xyz = camera_model.projectPixelTo3dRay((cx_p, cx_p))
-        pixel_to_xyz = np.dot(np.linalg.inv(camera_model.intrinsicMatrix()), np.array([pixel_to_xyz]).transpose())
-        print(pixel_to_xyz)
+        # pixel_to_xyz = np.dot(np.linalg.inv(self.camera_matrixback), np.array([pixel_to_xyz[0],pixel_to_xyz[1], pixel_to_xyz[2], 0]).transpose())
         self.sendMarker(pixel_to_xyz)
-
         # TODO: the values are wrong
         # draws the lidar points in the image
         for value in pixels_cloud:
