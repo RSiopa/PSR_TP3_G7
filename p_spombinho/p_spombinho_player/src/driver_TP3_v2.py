@@ -42,6 +42,7 @@ class Driver:
         # sees the goal 0.1s at a time
         self.timer = rospy.Timer(rospy.Duration(0.1), self.sendCommandCallback)
         # subscribes to see if theres a goal ( this part is going to be changed to the value )
+        # stops existing, we need a if or a switch to choose the mode (attack, defense, navigating
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallBack)
         # sees the team of the car
         self.whichTeam()
@@ -228,9 +229,9 @@ class Driver:
         image = cv2.bitwise_or(frame, frame, mask=mask_final)
         image = cv2.add(gray, image)
         # gives the center of a mask and draws it
-        (cx_t, cy_t) = self.GetCentroid(mask_teammate, image)
-        (cx_p, cy_p) = self.GetCentroid(mask_prey, image)
-        (cx_a, cy_a) = self.GetCentroid(mask_attacker, image)
+        Center_t = self.GetCentroid(mask_teammate, image)
+        Center_p = self.GetCentroid(mask_prey, image)
+        Center_a = self.GetCentroid(mask_attacker, image)
         self.wp_to_pixels = []
         # TODO: the values are wrong
         # draws the lidar points in the image
@@ -239,6 +240,9 @@ class Driver:
                 world_pixels = [value[0]/value[2], value[1]/value[2], value[2]]
                 image = cv2.circle(image, (int(world_pixels[0]), int(world_pixels[1])), radius=0, color=(0, 200, 125), thickness=6)
                 self.wp_to_pixels.append(world_pixels)
+                # with this we have the pixel points of the lidar, now we need to use this list, check the closest point
+                # from the centroid (depending which centroid is, or if there is one)
+
 
         return image
 
@@ -281,7 +285,6 @@ class Driver:
         :param msg: scan data received from the car
         :return:
         """
-
         # creates a list of world coordinates
         z = 0
         for idx, range in enumerate(msg.ranges):
@@ -299,17 +302,7 @@ class Driver:
             return cX, cY
         else:
             # sends an impossible value that doesnt
-            return -100, -100
-
-    # def getTransform(self):
-    #     from_frame = self.name + '/camera_rgb_optical_frame'
-    #     to_frame = self.name + '/scan'
-    #     try:
-    #         self.lidar2cam = self.tf_buffer.lookup_transform(from_frame, to_frame, rospy.Time.now(), rospy.Duration(1.0))
-    #     except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-    #         rospy.logerr('Could not find the transformed')
-
-
+            return None, None
 
 
 def main():
