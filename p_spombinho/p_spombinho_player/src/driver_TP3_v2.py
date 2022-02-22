@@ -130,7 +130,7 @@ class Driver:
         # verify if the goal is achieved
         if self.goal_active:
             distance_to_goal = self.computeDistanceToGoal(self.goal)
-            print(distance_to_goal)
+            # print(distance_to_goal)
             if distance_to_goal < 0.05:
                 rospy.logwarn('I have achieved my goal!!!')
                 self.goal_active = False
@@ -191,6 +191,7 @@ class Driver:
         x = goal_in_base_link.pose.position.x
         y = goal_in_base_link.pose.position.y
 
+
         angle = math.atan2(y, x) # compute the angle
 
         distance = math.sqrt(x**2 + y**2)
@@ -198,7 +199,6 @@ class Driver:
         # saturates the speed to minimum and maximum values
         speed = min(speed, maximum_speed)
         speed = max(speed, minimum_speed)
-
         return angle, speed
 
     def GetImage(self, data_front, data_back):
@@ -214,15 +214,16 @@ class Driver:
 
         # Process the frame using the process_image() function
         display_image_front = self.discover_car(frame_front, self.lidar2cam)
-        display_image_back = self.discover_car(frame_back, self.lidar2cam_back)
+        #display_image_back = self.discover_car(frame_back, self.lidar2cam_back)
         # with this we can see the red, blue and green cars
         if self.image_flag is True:
             cv2.imshow('front', display_image_front)
-            cv2.imshow('back', display_image_back)
+            # cv2.imshow('back', display_image_back)
         cv2.waitKey(1)
 
     def discover_car(self, frame, camera_matrix):
         # Convert to HSV
+        frame = copy.deepcopy(frame)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # create 3 channels !
         gray = cv2.merge((gray, gray, gray))
@@ -232,7 +233,9 @@ class Driver:
         # get the transform the lidar values to pixel
         pixel_cloud = self.lidar_to_image(camera_matrix)
         # creates the image
+        # TODO: FILTER SMALL OBJECTS
         mask_final = mask_attacker + mask_prey + mask_teammate
+        cv2.imshow('mask', mask_final)
         image = cv2.bitwise_or(frame, frame, mask=mask_final)
         image = cv2.add(gray, image)
         # gives the center of a mask and draws it
@@ -244,7 +247,8 @@ class Driver:
         for value in pixel_cloud:
             if math.isnan(value[0]) is False:
                 world_pixels = [value[0]/value[2], value[1]/value[2], value[2]]
-                image = cv2.circle(image, (int(world_pixels[0]), int(world_pixels[1])), radius=0, color=(0, 200, 125), thickness=6)
+                # if ((world_pixels[0] < 1280) & (world_pixels[0] > 0)) & ((world_pixels[1] < 720) & (world_pixels[1] > 0)):
+                    # cv2.circle(image, (int(world_pixels[0]), int(world_pixels[1])), 5, (100, 160, 200), -1)
                 self.wp_to_pixels.append(world_pixels)
                 # with this we have the pixel points of the lidar, now we need to use this list, check the closest point
                 # from the centroid (depending which centroid is, or if there is one)
@@ -254,9 +258,15 @@ class Driver:
         self.preyPos = self.ClosestPoint(Center_p, camera_matrix)
         self.attackerPos = self.ClosestPoint(Center_a, camera_matrix)
         self.teammatePos = self.ClosestPoint(Center_t, camera_matrix)
-        # print(self.preyPos)
-        # print(self.attackerPos)
-        # print(self.teammatePos)
+
+        if self.preyPos.pose.position.x == -1000:
+            self.goal_active = False
+        else:
+            self.goal = self.preyPos  # storing the goal inside the class
+            self.goal_active = True
+            print('attack')
+
+
         return image
 
     def ClosestPoint(self, Center, camera_matrix):
@@ -272,7 +282,7 @@ class Driver:
                 if dist[idx + 1] > dist[idx]:
                     Close_lidar_point.pose.position.x = self.points[idx][0]
                     Close_lidar_point.pose.position.y = self.points[idx][1]
-
+            Close_lidar_point.header.frame_id = self.name + '/odom'
             return Close_lidar_point
 
     def sendMarker(self, coord):
