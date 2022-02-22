@@ -4,6 +4,7 @@ import math
 
 import image_geometry
 import numpy as np
+from numpy.linalg import inv
 import rospy
 # VERY IMPORTANT TO SUBSCRIBE TO MULTIPLE TOPICS
 import message_filters
@@ -25,6 +26,13 @@ class Driver:
         # Define the goal to which the robot should move
         self.goal = PoseStamped
         self.goal_active = False
+        # get param to see the photos
+        self.image_flag = rospy.get_param('~image_flag', 'True')
+        # pos initialization -------------------
+        self.preyPos = PoseStamped
+        self.attackerPos = PoseStamped
+        self.teammatePos = PoseStamped
+        # ----------------------------
         # colors inicialization ----------------
         self.attacker_color_min = (0, 0, 239)
         self.attacker_color_max = (31, 31, 255)
@@ -38,7 +46,7 @@ class Driver:
         # publishes the marker of the cars
         self.publish_marker = rospy.Publisher(self.node + '/Markers', Marker, queue_size=1)
         # publishes the velocity of the car
-        self.publisher_command = rospy.Publisher(str(self.node) + '/cmd_vel', Twist, queue_size=1)
+        self.publisher_goal = rospy.Publisher(str(self.node) + '/cmd_vel', Twist, queue_size=1)
         # sees the goal 0.1s at a time
         self.timer = rospy.Timer(rospy.Duration(0.1), self.sendCommandCallback)
         # subscribes to see if theres a goal ( this part is going to be changed to the value )
@@ -71,7 +79,7 @@ class Driver:
         self.image_subscriber_front = message_filters.Subscriber(self.node + '/camera/rgb/image_raw', Image)
         self.image_subscriber_back = message_filters.Subscriber(self.node + '/camera_back/rgb/image_raw', Image)
         ts = message_filters.TimeSynchronizer([self.image_subscriber_front, self.image_subscriber_back], 1)
-        ts.registerCallback(self.GetImagePrey)
+        ts.registerCallback(self.GetImage)
 
 
     def whichTeam(self):
@@ -141,7 +149,7 @@ class Driver:
         command_msg = Twist()
         command_msg.linear.x = speed
         command_msg.angular.z = angle
-        self.publisher_command.publish(command_msg)
+        self.publisher_goal.publish(command_msg)
 
     def computeDistanceToGoal(self, goal):
 
@@ -193,7 +201,7 @@ class Driver:
 
         return angle, speed
 
-    def GetImagePrey(self, data_front, data_back):
+    def GetImage(self, data_front, data_back):
         # rospy.loginfo('Image received...')
         image_front = self.br.imgmsg_to_cv2(data_front, "bgr8")
         image_back = self.br.imgmsg_to_cv2(data_back, "bgr8")
@@ -208,9 +216,9 @@ class Driver:
         display_image_front = self.discover_car(frame_front, self.lidar2cam)
         display_image_back = self.discover_car(frame_back, self.lidar2cam_back)
         # with this we can see the red, blue and green cars
-        #TODO: CREATE HERE A ARGUMENT TO SEE OR NOT THE IMAGES
-        cv2.imshow('front', display_image_front)
-        cv2.imshow('back', display_image_back)
+        if self.image_flag is True:
+            cv2.imshow('front', display_image_front)
+            cv2.imshow('back', display_image_back)
         cv2.waitKey(1)
 
     def discover_car(self, frame, camera_matrix):
@@ -221,7 +229,6 @@ class Driver:
         mask_attacker = cv2.inRange(frame, self.attacker_color_min, self.attacker_color_max)
         mask_prey = cv2.inRange(frame, self.prey_color_min, self.prey_color_max)
         mask_teammate = cv2.inRange(frame, self.teammate_color_min, self.teammate_color_max)
-
         # get the transform the lidar values to pixel
         pixel_cloud = self.lidar_to_image(camera_matrix)
         # creates the image
@@ -233,7 +240,6 @@ class Driver:
         Center_p = self.GetCentroid(mask_prey, image)
         Center_a = self.GetCentroid(mask_attacker, image)
         self.wp_to_pixels = []
-        # TODO: the values are wrong
         # draws the lidar points in the image
         for value in pixel_cloud:
             if math.isnan(value[0]) is False:
@@ -242,9 +248,32 @@ class Driver:
                 self.wp_to_pixels.append(world_pixels)
                 # with this we have the pixel points of the lidar, now we need to use this list, check the closest point
                 # from the centroid (depending which centroid is, or if there is one)
-
-
+            else:
+                self.wp_to_pixels.append([-10, -10, -10])
+        # probably here it receives the self.attackerPos , self.preyPos and self.teammatePos in case they exist
+        self.preyPos = self.ClosestPoint(Center_p, camera_matrix)
+        self.attackerPos = self.ClosestPoint(Center_a, camera_matrix)
+        self.teammatePos = self.ClosestPoint(Center_t, camera_matrix)
+        # print(self.preyPos)
+        # print(self.attackerPos)
+        # print(self.teammatePos)
         return image
+
+    def ClosestPoint(self, Center, camera_matrix):
+        Close_lidar_point = PoseStamped()
+        dist = [0]
+        if Center[0] is None:
+            Close_lidar_point.pose.position.x = -1000
+            Close_lidar_point.pose.position.y = -1000
+            return Close_lidar_point
+        else:
+            for idx, pixel in enumerate(self.wp_to_pixels):
+                dist.append(math.sqrt((Center[0]-pixel[0])**2 + (Center[1]-pixel[1])**2))
+                if dist[idx + 1] > dist[idx]:
+                    Close_lidar_point.pose.position.x = self.points[idx][0]
+                    Close_lidar_point.pose.position.y = self.points[idx][1]
+
+            return Close_lidar_point
 
     def sendMarker(self, coord):
         marker = Marker()
