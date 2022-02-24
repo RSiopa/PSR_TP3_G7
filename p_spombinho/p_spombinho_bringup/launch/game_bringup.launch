@@ -30,6 +30,14 @@
         <arg name="player_name" value="green1" />
         <arg name="player_color" value="Green" />
     </include>
+   <!--  create the green2 player -->
+    <include file="$(find p_spombinho_bringup)/launch/bringup.launch">
+        <arg name="x_pos" value="-2.0" />
+        <arg name="y_pos" value="1.4" />
+        <arg name="z_pos" value="0" />
+        <arg name="player_name" value="green2" />
+        <arg name="player_color" value="Green" />
+    </include>
 
         <!--  create the blue1 player -->
     <include file="$(find p_spombinho_bringup)/launch/bringup.launch">

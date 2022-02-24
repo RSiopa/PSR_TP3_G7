@@ -1,8 +1,6 @@
 #!/usr/bin/env python3.8
 import copy
 import math
-
-import image_geometry
 import numpy as np
 from numpy.linalg import inv
 import rospy
@@ -23,9 +21,11 @@ class Driver:
         # name of the car with \ and without
         self.node = rospy.get_name()
         self.name = self.node[1:len(self.node)]
+        self.id = 1
         # Define the goal to which the robot should move
         self.goal = PoseStamped
         self.goal_active = False
+        self.navigation_active = False
         # get param to see the photos
         self.image_flag = rospy.get_param('~image_flag', 'True')
         # pos initialization -------------------
@@ -49,6 +49,7 @@ class Driver:
         self.publisher_goal = rospy.Publisher(str(self.node) + '/cmd_vel', Twist, queue_size=1)
         # sees the goal 0.1s at a time
         self.timer = rospy.Timer(rospy.Duration(0.1), self.sendCommandCallback)
+
         # subscribes to see if theres a goal ( this part is going to be changed to the value )
         # stops existing, we need a if or a switch to choose the mode (attack, defense, navigating
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallBack)
@@ -89,7 +90,7 @@ class Driver:
         for idx, x in enumerate(red_names):
             if self.name == x:
                 print('I am ' + str(self.name) + ' I am team red. I am hunting' + str(green_names) + 'and fleeing from' + str(blue_names))
-                self.attacker_color_min = (120, 0, 0)
+                self.attacker_color_min = (100, 0, 0)
                 self.attacker_color_max = (255, 31, 31)
                 self.prey_color_min = (0, 100, 0)
                 self.prey_color_max = (31, 255, 31)
@@ -98,7 +99,7 @@ class Driver:
 
             elif self.name == green_names[idx]:
                 print('I am ' + str(self.name) + ' I am team green. I am hunting' + str(blue_names) + 'and fleeing from' + str(red_names))
-                self.prey_color_min = (120, 0, 0)
+                self.prey_color_min = (100, 0, 0)
                 self.prey_color_max = (255, 31, 31)
                 self.teammate_color_min = (0, 100, 0)
                 self.teammate_color_max = (31, 255, 31)
@@ -107,7 +108,7 @@ class Driver:
 
             elif self.name == blue_names[idx]:
                 print('I am ' + str(self.name) + ' I am team blue. I am hunting' + str(red_names) + 'and fleeing from' + str(green_names))
-                self.teammate_color_min = (120, 0, 0)
+                self.teammate_color_min = (100, 0, 0)
                 self.teammate_color_max = (255, 31, 31)
                 self.attacker_color_min = (0, 100, 0)
                 self.attacker_color_max = (31, 255, 31)
@@ -230,94 +231,114 @@ class Driver:
         mask_attacker = cv2.inRange(frame, self.attacker_color_min, self.attacker_color_max)
         mask_prey = cv2.inRange(frame, self.prey_color_min, self.prey_color_max)
         mask_teammate = cv2.inRange(frame, self.teammate_color_min, self.teammate_color_max)
-        # get the transform the lidar values to pixel
-        pixel_cloud = self.lidar_to_image(camera_matrix)
+        Center_t, mask_teammate = self.GetCentroid(mask_teammate, frame)
+        Center_p, mask_prey = self.GetCentroid(mask_prey, frame)
+        Center_a, mask_attacker = self.GetCentroid(mask_attacker, frame)
+
         # creates the image
-        # TODO: FILTER SMALL OBJECTS
+        # TODO: FILTER SMALL OBJECTS (Separated)
         mask_final = mask_attacker + mask_prey + mask_teammate
-        cv2.imshow('mask', mask_final)
+        cv2.imshow('final_mask', mask_final)
         image = cv2.bitwise_or(frame, frame, mask=mask_final)
         image = cv2.add(gray, image)
-        # gives the center of a mask and draws it
-        Center_t = self.GetCentroid(mask_teammate, image)
-        Center_p = self.GetCentroid(mask_prey, image)
-        Center_a = self.GetCentroid(mask_attacker, image)
-        self.wp_to_pixels = []
-        # draws the lidar points in the image
-        for value in pixel_cloud:
-            if math.isnan(value[0]) is False:
-                world_pixels = [value[0]/value[2], value[1]/value[2], value[2]]
-                # if ((world_pixels[0] < 1280) & (world_pixels[0] > 0)) & ((world_pixels[1] < 720) & (world_pixels[1] > 0)):
-                    # cv2.circle(image, (int(world_pixels[0]), int(world_pixels[1])), 5, (100, 160, 200), -1)
-                self.wp_to_pixels.append(world_pixels)
-                # with this we have the pixel points of the lidar, now we need to use this list, check the closest point
-                # from the centroid (depending which centroid is, or if there is one)
-            else:
-                self.wp_to_pixels.append([-10, -10, -10])
-        # probably here it receives the self.attackerPos , self.preyPos and self.teammatePos in case they exist
-        self.preyPos = self.ClosestPoint(Center_p, camera_matrix)
-        self.attackerPos = self.ClosestPoint(Center_a, camera_matrix)
-        self.teammatePos = self.ClosestPoint(Center_t, camera_matrix)
 
-        if self.preyPos.pose.position.x == -1000:
-            self.goal_active = False
-        else:
+        # get the transform the lidar values to pixel, draws it in the image
+        pixel_cloud = self.lidar_to_image(camera_matrix, image)
+        # probably here it receives the self.attackerPos , self.preyPos and self.teammatePos in case they exist
+        # print(Center_p)
+        self.preyPos = self.ClosestPoint(Center_p, camera_matrix, pixel_cloud)
+        self.attackerPos = self.ClosestPoint(Center_a, camera_matrix, pixel_cloud)
+        self.teammatePos = self.ClosestPoint(Center_t, camera_matrix, pixel_cloud)
+        # print(self.preyPos)
+
+        if math.isinf(self.preyPos.pose.position.x) is False:
+            self.sendMarker(self.preyPos, self.prey_color_max)
+        if math.isinf(self.attackerPos.pose.position.x) is False:
+            self.sendMarker(self.attackerPos, self.attacker_color_max)
+        if math.isinf(self.teammatePos.pose.position.x) is False:
+            self.sendMarker(self.teammatePos, self.teammate_color_max)
+
+        # probably this is for the other function ( we gonna need to flags, one back and other front, so they can't be here
+        # comment to stop the car
+        if math.isinf(self.preyPos.pose.position.x) is False:
             self.goal = self.preyPos  # storing the goal inside the class
             self.goal_active = True
             print('attack')
-
-
+        else:
+            self.goal_active = False
+            print('waiting goal')
         return image
 
-    def ClosestPoint(self, Center, camera_matrix):
+    def ClosestPoint(self, Center, camera_matrix, pixel_cloud):
         Close_lidar_point = PoseStamped()
-        dist = [0]
+        dist = []
+        flag = 1000
         if Center[0] is None:
-            Close_lidar_point.pose.position.x = -1000
-            Close_lidar_point.pose.position.y = -1000
+            Close_lidar_point.pose.position.x = math.inf
+            Close_lidar_point.pose.position.y = math.inf
             return Close_lidar_point
         else:
-            for idx, pixel in enumerate(self.wp_to_pixels):
+            for idx, pixel in enumerate(pixel_cloud):
                 dist.append(math.sqrt((Center[0]-pixel[0])**2 + (Center[1]-pixel[1])**2))
-                if dist[idx + 1] > dist[idx]:
+                if dist[idx] < flag:
                     Close_lidar_point.pose.position.x = self.points[idx][0]
                     Close_lidar_point.pose.position.y = self.points[idx][1]
+                    flag = dist[idx]
+
             Close_lidar_point.header.frame_id = self.name + '/odom'
             return Close_lidar_point
 
-    def sendMarker(self, coord):
+    def sendMarker(self, coord, color):
         marker = Marker()
-        marker.id = 0
+        marker.id = self.id
         marker.header.frame_id = "red1/base_link"
         marker.type = marker.CYLINDER
         marker.action = marker.ADD
         marker.scale.x = 0.2
         marker.scale.y = 0.2
         marker.scale.z = 0.2
-        marker.color.r = 1
-        marker.color.g = 0
-        marker.color.b = 0
-        marker.color.a = 1.0
+        marker.color.r = color[2]/255
+        marker.color.g = color[1]/255
+        marker.color.b = color[0]/255
+        marker.color.a = 0.3
         marker.pose.orientation.w = 1.0
-        marker.pose.position.x = coord[0] + 0.2
-        marker.pose.position.y = coord[1] + 0.011
+        marker.pose.position.x = coord.pose.position.x
+        marker.pose.position.y = coord.pose.position.y
         marker.pose.position.z = 0.2
         self.publish_marker.publish(marker)
+        self.id = self.id + 1
+        if self.id > 5:
+            marker.DELETEALL
+            self.id = 0
 
-    def lidar_to_image(self, camera_matrix):
+    def lidar_to_image(self, camera_matrix, image):
         """
         :param camera_matrix: attacker points from the camera
         :return:
         """
         # so testar os valores front por agora
+        # TODO: depois mudar para um so for quando estiver funcional
         pixel_cloud =[]
+        pixels_final = []
         for value in self.points:
             value_array = np.array(value)
             pixel = np.dot(camera_matrix, value_array.transpose())
             pixel = np.dot(self.cameraIntrinsic, pixel)
             pixel_cloud.append(pixel)
 
-        return pixel_cloud
+        for value in pixel_cloud:
+            if math.isnan(value[0]) is False:
+                world_pixels = [value[0] / value[2], value[1] / value[2], value[2]]
+                if ((world_pixels[0] < 1280) & (world_pixels[0] > 0)) & ((world_pixels[1] < 720) & (world_pixels[1] > 0)):
+                    cv2.circle(image, (int(world_pixels[0]), int(world_pixels[1])), 5, (100, 160, 200), -1)
+                pixels_final.append(world_pixels)
+                # with this we have the pixel points of the lidar, now we need to use this list, check the closest point
+                # from the centroid (depending which centroid is, or if there is one)
+            else:
+                # to maintain the same index of the lidar points
+                pixels_final.append([-1000, -1000, -1000])
+
+        return pixels_final
 
     def Laser_Points(self, msg):
         """
@@ -325,6 +346,7 @@ class Driver:
         :return:
         """
         # creates a list of world coordinates
+        self.points =[]
         z = 0
         for idx, range in enumerate(msg.ranges):
             theta = msg.angle_min + idx * msg.angle_increment
@@ -333,15 +355,29 @@ class Driver:
             self.points.append([x, y, z, 1])
 
     def GetCentroid(self, mask, image):
-        M = cv2.moments(mask)
+        cnts = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+        for c in cnts:
+            area = cv2.contourArea(c)
+            if area < 100:
+                cv2.drawContours(mask, [c], -1, (0, 0, 0), -1)
+
+        # Morph close and invert image
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        close = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+        # voltar a encontrar a centroid ( nao desta maneira) e so return a maior (mas precisamos de ambas para o rviz)
+        M = cv2.moments(close)
         if M["m00"] != 0.0:
             cX = int(M["m10"] / M["m00"])
             cY = int(M["m01"] / M["m00"])
             cv2.circle(image, (cX, cY), 7, (255, 255, 255), -1)
-            return cX, cY
+            Center = (cX, cY)
+            # print(Center)
+            return Center, close
         else:
-            # sends an impossible value that doesnt
-            return None, None
+            # sends nothing
+            Center = (None, None)
+            return Center, close
 
 
 def main():
