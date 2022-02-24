@@ -33,7 +33,7 @@ class Driver:
         self.attackerPos = PoseStamped
         self.teammatePos = PoseStamped
         # ----------------------------
-        # colors inicialization ----------------
+        # colors initialization ----------------
         self.attacker_color_min = (0, 0, 239)
         self.attacker_color_max = (31, 31, 255)
         self.prey_color_min = (0, 239, 0)
@@ -50,8 +50,8 @@ class Driver:
         # sees the goal 0.1s at a time
         self.timer = rospy.Timer(rospy.Duration(0.1), self.sendCommandCallback)
 
-        # subscribes to see if theres a goal ( this part is going to be changed to the value )
-        # stops existing, we need a if or a switch to choose the mode (attack, defense, navigating
+        # subscribes to see if there is a goal ( this part is going to be changed to the value )
+        # stops existing, we need an if or a switch to choose the mode (attack, defense, navigating)
         self.goal_subscriber = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalReceivedCallBack)
         # sees the team of the car
         self.whichTeam()
@@ -66,7 +66,7 @@ class Driver:
                                         [0.0, 1060.9338813153618, 360.5],
                                         [0.0, 0.0, 1.0]])
 
-        # camera extrinsic from the lidar to the camera (back and front are diferent extrinsic values )
+        # camera extrinsic from the lidar to the camera (back and front are different extrinsic values )
         # this is the value from camera_rgb_optical_frame to scan
         self.lidar2cam = np.array([[0.0006, -1.0, -0.0008, -0.0],
                                   [0.0006, 0.0008, -1.0, -0.029],
@@ -258,7 +258,7 @@ class Driver:
         if math.isinf(self.teammatePos.pose.position.x) is False:
             self.sendMarker(self.teammatePos, self.teammate_color_max)
 
-        # probably this is for the other function ( we gonna need to flags, one back and other front, so they can't be here
+        # probably this is for the other function ( we gonna need two flags, one back and other front, so they can't be here
         # comment to stop the car
         if math.isinf(self.preyPos.pose.position.x) is False:
             self.goal = self.preyPos  # storing the goal inside the class
@@ -365,7 +365,7 @@ class Driver:
         # Morph close and invert image
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
         close = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
-        # voltar a encontrar a centroid ( nao desta maneira) e so return a maior (mas precisamos de ambas para o rviz)
+        # voltar a encontrar a centroid ( nao desta maneira) e so dar return a maior (mas precisamos de ambas para o rviz)
         M = cv2.moments(close)
         if M["m00"] != 0.0:
             cX = int(M["m10"] / M["m00"])

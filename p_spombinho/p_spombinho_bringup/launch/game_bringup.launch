@@ -1,5 +1,5 @@
 <launch>
-<!--    Adicional o empty world -->
+<!--    Add the empty world -->
     <rosparam command="load" file="$(find p_spombinho_bringup)/params/game.yaml"/>
 
     <include file="$(find gazebo_ros)/launch/empty_world.launch">
