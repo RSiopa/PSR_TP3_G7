@@ -31,6 +31,7 @@
         <arg name="player_name" value="green1" />
         <arg name="player_color" value="Green" />
     </include>
+
    <!--  create the green2 player -->
     <include file="$(find p_spombinho_bringup)/launch/bringup.launch">
         <arg name="x_pos" value="-2.0" />
