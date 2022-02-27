@@ -14,6 +14,9 @@ from visualization_msgs.msg import *
 import cv2
 import tf2_geometry_msgs # Do not use geometry_msgs. Use this for PoseStamped (depois perguntar porque)
 
+global display_image_front
+global display_image_back
+
 
 class Driver:
 
@@ -29,9 +32,9 @@ class Driver:
         # get param to see the photos
         self.image_flag = rospy.get_param('~image_flag', 'True')
         # pos initialization -------------------
-        self.preyPos = PoseStamped
-        self.attackerPos = PoseStamped
-        self.teammatePos = PoseStamped
+        self.preyPos = PoseStamped()
+        self.attackerPos = PoseStamped()
+        self.teammatePos = PoseStamped()
         # ----------------------------
         # colors initialization ----------------
         self.attacker_color_min = (0, 0, 239)
@@ -77,10 +80,8 @@ class Driver:
                                         [-1.0, -0.0027, 0.0009, -0.139]])
 
         # subscribes to the back and front images of the car
-        self.image_subscriber_front = message_filters.Subscriber(self.node + '/camera/rgb/image_raw', Image)
-        self.image_subscriber_back = message_filters.Subscriber(self.node + '/camera_back/rgb/image_raw', Image)
-        ts = message_filters.TimeSynchronizer([self.image_subscriber_front, self.image_subscriber_back], 1)
-        ts.registerCallback(self.GetImage)
+        self.image_subscriber_front = rospy.Subscriber(self.node + '/camera/rgb/image_raw', Image, self.GetImage)
+        # self.image_subscriber_back = rospy.Subscriber(self.node + '/camera_back/rgb/image_raw', Image)
 
 
     def whichTeam(self):
@@ -92,7 +93,7 @@ class Driver:
                 print('I am ' + str(self.name) + ' I am team red. I am hunting' + str(green_names) + 'and fleeing from' + str(blue_names))
                 self.attacker_color_min = (100, 0, 0)
                 self.attacker_color_max = (255, 31, 31)
-                self.prey_color_min = (0, 100, 0)
+                self.prey_color_min = (0, 170, 0)
                 self.prey_color_max = (31, 255, 31)
                 self.teammate_color_min = (0, 0, 100)
                 self.teammate_color_max = (31, 31, 255)
@@ -101,7 +102,7 @@ class Driver:
                 print('I am ' + str(self.name) + ' I am team green. I am hunting' + str(blue_names) + 'and fleeing from' + str(red_names))
                 self.prey_color_min = (100, 0, 0)
                 self.prey_color_max = (255, 31, 31)
-                self.teammate_color_min = (0, 100, 0)
+                self.teammate_color_min = (0, 170, 0)
                 self.teammate_color_max = (31, 255, 31)
                 self.attacker_color_min = (0, 0, 100)
                 self.attacker_color_max = (31, 31, 255)
@@ -110,7 +111,7 @@ class Driver:
                 print('I am ' + str(self.name) + ' I am team blue. I am hunting' + str(red_names) + 'and fleeing from' + str(green_names))
                 self.teammate_color_min = (100, 0, 0)
                 self.teammate_color_max = (255, 31, 31)
-                self.attacker_color_min = (0, 100, 0)
+                self.attacker_color_min = (0, 170, 0)
                 self.attacker_color_max = (31, 255, 31)
                 self.prey_color_min = (0, 0, 100)
                 self.prey_color_max = (31, 31, 255)
@@ -192,34 +193,33 @@ class Driver:
         x = goal_in_base_link.pose.position.x
         y = goal_in_base_link.pose.position.y
 
-
         angle = math.atan2(y, x) # compute the angle
+        print(x, y, angle)
 
         distance = math.sqrt(x**2 + y**2)
-        speed = 0.5 * distance
+        speed = 0.5 * (1/distance)
+        if speed < 0.1:
+            speed = 0.1
         # saturates the speed to minimum and maximum values
         speed = min(speed, maximum_speed)
         speed = max(speed, minimum_speed)
         return angle, speed
 
-    def GetImage(self, data_front, data_back):
+    def GetImage(self, data_front):
+        global display_image_front
         # rospy.loginfo('Image received...')
         image_front = self.br.imgmsg_to_cv2(data_front, "bgr8")
-        image_back = self.br.imgmsg_to_cv2(data_back, "bgr8")
 
         # Convert the image to a Numpy array since most cv2 functions
 
         # require Numpy arrays.
         frame_front = np.array(image_front, dtype=np.uint8)
-        frame_back = np.array(image_back, dtype=np.uint8)
 
         # Process the frame using the process_image() function
         display_image_front = self.discover_car(frame_front, self.lidar2cam)
-        #display_image_back = self.discover_car(frame_back, self.lidar2cam_back)
         # with this we can see the red, blue and green cars
         if self.image_flag is True:
             cv2.imshow('front', display_image_front)
-            # cv2.imshow('back', display_image_back)
         cv2.waitKey(1)
 
     def discover_car(self, frame, camera_matrix):
@@ -245,11 +245,9 @@ class Driver:
         # get the transform the lidar values to pixel, draws it in the image
         pixel_cloud = self.lidar_to_image(camera_matrix, image)
         # probably here it receives the self.attackerPos , self.preyPos and self.teammatePos in case they exist
-        # print(Center_p)
-        self.preyPos = self.ClosestPoint(Center_p, camera_matrix, pixel_cloud)
-        self.attackerPos = self.ClosestPoint(Center_a, camera_matrix, pixel_cloud)
-        self.teammatePos = self.ClosestPoint(Center_t, camera_matrix, pixel_cloud)
-        # print(self.preyPos)
+        self.preyPos = self.ClosestPoint(Center_p,  pixel_cloud)
+        self.attackerPos = self.ClosestPoint(Center_a, pixel_cloud)
+        self.teammatePos = self.ClosestPoint(Center_t, pixel_cloud)
 
         if math.isinf(self.preyPos.pose.position.x) is False:
             self.sendMarker(self.preyPos, self.prey_color_max)
@@ -263,14 +261,20 @@ class Driver:
         if math.isinf(self.preyPos.pose.position.x) is False:
             self.goal = self.preyPos  # storing the goal inside the class
             self.goal_active = True
-            print('attack')
+            # print('attack')
         else:
             self.goal_active = False
-            print('waiting goal')
+            # print('waiting goal')
+
         return image
 
-    def ClosestPoint(self, Center, camera_matrix, pixel_cloud):
+    def ClosestPoint(self, Center,  pixel_cloud):
+        Flag_lidar_points = PoseStamped()
         Close_lidar_point = PoseStamped()
+        Close_lidar_point.pose.position.x = math.inf
+        Close_lidar_point.pose.position.y = math.inf
+        Flag_lidar_points.pose.position.x = math.inf
+        Flag_lidar_points.pose.position.y = math.inf
         dist = []
         flag = 1000
         if Center[0] is None:
@@ -280,12 +284,17 @@ class Driver:
         else:
             for idx, pixel in enumerate(pixel_cloud):
                 dist.append(math.sqrt((Center[0]-pixel[0])**2 + (Center[1]-pixel[1])**2))
-                if dist[idx] < flag:
-                    Close_lidar_point.pose.position.x = self.points[idx][0]
-                    Close_lidar_point.pose.position.y = self.points[idx][1]
-                    flag = dist[idx]
+                if dist[idx] < 250:
+                    if dist[idx] < flag:
+                        Flag_lidar_points.pose.position.x = self.points[idx][0]
+                        Flag_lidar_points.pose.position.y = self.points[idx][1]
+                        flag = dist[idx]
 
-            Close_lidar_point.header.frame_id = self.name + '/odom'
+            # point to the base of the robot
+            Close_lidar_point.header.frame_id = self.name + '/base_link'
+            # manter-se em inf caso não exista valores proximos
+            Close_lidar_point.pose.position.x = Flag_lidar_points.pose.position.x
+            Close_lidar_point.pose.position.y = Flag_lidar_points.pose.position.y
             return Close_lidar_point
 
     def sendMarker(self, coord, color):
@@ -365,11 +374,24 @@ class Driver:
         # Morph close and invert image
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
         close = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+
         # voltar a encontrar a centroid ( nao desta maneira) e so dar return a maior (mas precisamos de ambas para o rviz)
-        M = cv2.moments(close)
-        if M["m00"] != 0.0:
-            cX = int(M["m10"] / M["m00"])
-            cY = int(M["m01"] / M["m00"])
+        contours, hierarchy = cv2.findContours(close, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            # if it finds objects, it will sort them from biggest to smallest
+            sorted_contours = sorted(contours, key=cv2.contourArea, reverse=True)
+            # the biggest will be the first on the list
+            biggest_object = sorted_contours[0]
+
+            # list of all x coordinates for biggest_object edges
+            center_x_raw=[coord[0][0] for coord in biggest_object]
+            # list of all y coordinates for biggest_object edges
+            center_y_raw=[coord[0][1] for coord in biggest_object]
+
+            # avg x value, used as centroid x coord
+            cX = int(sum(center_x_raw)/len(center_x_raw))
+            # avg y value, used as centroid y coord
+            cY = int(sum(center_y_raw)/len(center_y_raw))
             cv2.circle(image, (cX, cY), 7, (255, 255, 255), -1)
             Center = (cX, cY)
             # print(Center)

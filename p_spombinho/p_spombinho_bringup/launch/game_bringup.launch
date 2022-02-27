@@ -23,6 +23,7 @@
     </include>
 
     <!--  create the green1 player -->
+    <!--    comentar daqui ate ao fim para criar o mapa-->
     <include file="$(find p_spombinho_bringup)/launch/bringup.launch">
         <arg name="x_pos" value="-1.0" />
         <arg name="y_pos" value="1.0" />
