@@ -2,25 +2,27 @@
 <!-- the players' drivers are brought up from here as well as the referee, for the game to start at the same time -->
 <launch>
     <arg name="manual" default="true"/>
-    <arg name="player_name" default="red1"/>
-
-
-<!--    <group if="$(arg manual)">-->
-<!--        <include file="$(find p_spombinho_bringup)/launch/teleop.launch">-->
-<!--            <arg name="player_name" value="$(arg player_name)"/>-->
-<!--        </include>-->
-<!--    </group>-->
 
     <group if="$(eval arg('manual') == true)">
         <include file="$(find p_spombinho_bringup)/launch/teleop.launch">
-            <arg name="player_name" value="$(arg player_name)"/>
+            <arg name="player_name" value="red1"/>
         </include>
     </group>
 
     <group if="$(eval arg('manual') == false)">
-        <node name="red1" pkg="p_spombinho_player" type="driver_TP3_v2.py" />
+        <node name="red1" pkg="p_spombinho_player" type="driver_TP3_v2.py" >
+            <param name="~image_flag" value="True"/>
+        </node>
     </group>
 
-    <node name="green1" pkg="p_spombinho_player" type="driver_TP3_v2.py" />
-    <node name="blue1" pkg="p_spombinho_player" type="driver_TP3_v2.py" />
+
+    <node name="green1" pkg="p_spombinho_player" type="driver_TP3_v2.py" >
+        <param name="~image_flag" value="True"/>
+    </node>
+    <node name="blue1" pkg="p_spombinho_player" type="driver_TP3_v2.py" >
+        <param name="~image_flag" value="False"/>
+    </node>
+    <node name="green2" pkg="p_spombinho_player" type="driver_TP3_v2.py" >
+        <param name="~image_flag" value="False"/>
+    </node>
 </launch>
