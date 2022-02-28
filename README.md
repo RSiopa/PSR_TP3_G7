@@ -1,9 +1,8 @@
 # PSR_TP3_G7
 Third work from PSR
 
-# How to run
+## How to run
 
-## Running by parts:
 1. In the terminal write the following:
 
 `roslaunch p_spombinho_bringup game_bringup.launch`
