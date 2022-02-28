@@ -26,3 +26,7 @@ This will start the various drivers from each robot. This launch file has the fo
 *~image_flag* - Choose which cameras to see for the various robots
 
 
+## Videos
+
+Manual driving:
+https://www.youtube.com/watch?v=xfK-qF10tmk
