@@ -153,24 +153,35 @@ class Driver:
             self.goal.header.frame_id = self.name + '/base_link'
             self.goal_active = True
             self.Navigating = False
-
-        elif self.Running is True:
-            if math.isinf(self.attackerPos_back.pose.position.x) is False:
-                self.goal = self.attackerPos_back
-                self.goal.pose.position.x = - self.attackerPos_back.pose.position.x
-                self.goal.pose.position.y = - self.attackerPos_back.pose.position.y
-            else:
-                self.goal = self.attackerPos_back
-                self.goal.pose.position.x = - self.attackerPos.pose.position.x
-                self.goal.pose.position.y = - self.attackerPos.pose.position.y
-            self.goal.header.frame_id = self.name + '/base_link'
-            self.goal_active = True
-        else:
-            self.goal_active = False
-            self.Navigating = True
             self.Running = False
-            self.Hunting = False
-            print('navigating while waiting goal')
+            print("attack")
+        else:
+            if self.Navigating is True:
+                self.goal_active = False
+                self.Navigating = True
+                self.Running = False
+                self.Hunting = False
+                print('navigating while waiting goal')
+            else:
+                if self.Running is True:
+                    self.Navigating = False
+                    self.Running = True
+                    self.Hunting = False
+                    if math.isinf(self.attackerPos_back.pose.position.x) is False:
+                        self.goal = self.attackerPos_back
+                        self.goal.pose.position.x = - self.attackerPos_back.pose.position.x
+                        self.goal.pose.position.y = - self.attackerPos_back.pose.position.y
+                    else:
+                        self.goal = self.attackerPos_back
+                        self.goal.pose.position.x = - self.attackerPos.pose.position.x
+                        self.goal.pose.position.y = - self.attackerPos.pose.position.y
+                    self.goal.header.frame_id = self.name + '/base_link'
+                    self.goal_active = True
+                    print("running")
+                else:
+                    self.Navigating = False
+                    self.Running = False
+                    self.Hunting = False
 
         # verify if the goal is achieved
         if self.goal_active:
@@ -304,22 +315,13 @@ class Driver:
         # comment to stop the car
         if math.isinf(self.preyPos.pose.position.x) is False:
             self.Hunting = True
-            self.Navigating = False
-            self.Running = False
             self.goal = self.preyPos  # storing the goal inside the class
             self.goal.header.frame_id = self.name + '/base_link'
-            print('I have a prey in front')
 
         elif math.isinf(self.attackerPos.pose.position.x) is False:
-            self.Navigating = False
             self.Running = True
-            self.Hunting = False
-            print('oh no! an attacker at front')
         else:
-            self.Hunting = False
             self.Navigating = True
-            self.Running = False
-            print('nobody at front')
 
         return image
 
@@ -361,10 +363,7 @@ class Driver:
         # comment to stop the car
         if math.isinf(self.preyPos.pose.position.x) is True:
             if math.isinf(self.attackerPos_back.pose.position.x) is False:
-                self.Navigating = False
                 self.Running = True
-                self.Hunting = False
-                print('oh no! attacker in the back')
 
 
 
