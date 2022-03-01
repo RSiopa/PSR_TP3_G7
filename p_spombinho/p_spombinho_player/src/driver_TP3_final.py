@@ -317,11 +317,12 @@ class Driver:
             self.Hunting = True
             self.goal = self.preyPos  # storing the goal inside the class
             self.goal.header.frame_id = self.name + '/base_link'
-
-        elif math.isinf(self.attackerPos.pose.position.x) is False:
-            self.Running = True
         else:
-            self.Navigating = True
+            self.Hunting = False
+            if math.isinf(self.attackerPos.pose.position.x) is False:
+                self.Running = True
+            else:
+                self.Navigating = True
 
         return image
 
@@ -364,9 +365,6 @@ class Driver:
         if math.isinf(self.preyPos.pose.position.x) is True:
             if math.isinf(self.attackerPos_back.pose.position.x) is False:
                 self.Running = True
-
-
-
 
         return image
 
