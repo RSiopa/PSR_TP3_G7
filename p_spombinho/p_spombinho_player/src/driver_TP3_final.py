@@ -492,7 +492,7 @@ class Driver:
         # we need to detect the obstacles ( meaning that the points we see arent from the prey nor the attacker, so
         # they are considered obstacles
         thr1 = 1.0 # Laser scan range threshold
-        thr2 = 0.5
+        thr2 = 0.8
         if self.Navigating is True:
             if msg.ranges[0] > thr1 and msg.ranges[15] > thr2 and msg.ranges[345] > thr2:
                 move.linear.x = random.uniform(0.5, 1) # go forward (linear velocity)
