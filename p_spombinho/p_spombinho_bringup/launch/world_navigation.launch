@@ -1,0 +1,24 @@
+<launch>
+<!--    Add the empty world -->
+    <rosparam command="load" file="$(find p_spombinho_bringup)/params/game.yaml"/>
+
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+        <arg name="world_name" value="$(find th_description)/worlds/th_arena_1.world"/>
+        <arg name="paused" value="false"/>
+        <arg name="use_sim_time" value="true"/>
+        <arg name="gui" value="true"/>
+        <arg name="headless" value="false"/>
+        <arg name="debug" value="false"/>
+        <remap from="tf" to="p_spombinho/tf"/>
+    </include>
+
+
+<!--  create the red1 player -->
+    <include file="$(find p_spombinho_bringup)/launch/bringup.launch">
+        <arg name="x_pos" value="1.0" />
+        <arg name="y_pos" value="1.0" />
+        <arg name="z_pos" value="0" />
+        <arg name="player_name" value="red1" />
+        <arg name="player_color" value="Red" />
+    </include>
+</launch>
