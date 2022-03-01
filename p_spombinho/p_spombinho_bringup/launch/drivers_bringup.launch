@@ -3,6 +3,7 @@
 <launch>
     <arg name="manual" default="true"/>
 
+<!--    red players nodes -->
     <group if="$(eval arg('manual') == true)">
         <include file="$(find p_spombinho_bringup)/launch/teleop.launch">
             <arg name="player_name" value="red1"/>
@@ -10,19 +11,42 @@
     </group>
 
     <group if="$(eval arg('manual') == false)">
-        <node name="red1" pkg="p_spombinho_player" type="driver_TP3_v2.py" >
+        <node name="red1" pkg="p_spombinho_player" type="driver_TP3_final.py" >
             <param name="~image_flag" value="True"/>
         </node>
     </group>
 
-
-    <node name="green1" pkg="p_spombinho_player" type="driver_TP3_v2.py" >
-        <param name="~image_flag" value="True"/>
-    </node>
-    <node name="blue1" pkg="p_spombinho_player" type="driver_TP3_v2.py" >
+    <node name="red2" pkg="p_spombinho_player" type="driver_TP3_final.py" >
         <param name="~image_flag" value="False"/>
     </node>
-    <node name="green2" pkg="p_spombinho_player" type="driver_TP3_v2.py" >
+
+    <node name="red3" pkg="p_spombinho_player" type="driver_TP3_final.py" >
+        <param name="~image_flag" value="False"/>
+    </node>
+
+
+<!-- green players nodes -->
+    <node name="green1" pkg="p_spombinho_player" type="driver_TP3_final.py" >
+        <param name="~image_flag" value="False"/>
+    </node>
+    <node name="green2" pkg="p_spombinho_player" type="driver_TP3_final.py" >
+        <param name="~image_flag" value="False"/>
+    </node>
+
+    <node name="green3" pkg="p_spombinho_player" type="driver_TP3_final.py" >
+        <param name="~image_flag" value="False"/>
+    </node>
+
+<!--    blue nodes -->
+    <node name="blue1" pkg="p_spombinho_player" type="driver_TP3_final.py" >
+        <param name="~image_flag" value="False"/>
+    </node>
+
+    <node name="blue2" pkg="p_spombinho_player" type="driver_TP3_final.py" >
+        <param name="~image_flag" value="False"/>
+    </node>
+
+    <node name="blue3" pkg="p_spombinho_player" type="driver_TP3_final.py" >
         <param name="~image_flag" value="False"/>
     </node>
 </launch>

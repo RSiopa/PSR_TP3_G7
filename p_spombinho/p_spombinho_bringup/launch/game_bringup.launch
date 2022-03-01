@@ -22,8 +22,23 @@
         <arg name="player_color" value="Red" />
     </include>
 
-    <!--  create the green1 player -->
-    <!--    comentar daqui ate ao fim para criar o mapa-->
+    <include file="$(find p_spombinho_bringup)/launch/bringup.launch">
+        <arg name="x_pos" value="0.0" />
+        <arg name="y_pos" value="0.0" />
+        <arg name="z_pos" value="0" />
+        <arg name="player_name" value="red2" />
+        <arg name="player_color" value="Red" />
+    </include>
+
+    <include file="$(find p_spombinho_bringup)/launch/bringup.launch">
+        <arg name="x_pos" value="3.0" />
+        <arg name="y_pos" value="-1.0" />
+        <arg name="z_pos" value="0" />
+        <arg name="player_name" value="red3" />
+        <arg name="player_color" value="Red" />
+    </include>
+
+    <!--  create the greens players -->
     <include file="$(find p_spombinho_bringup)/launch/bringup.launch">
         <arg name="x_pos" value="-1.0" />
         <arg name="y_pos" value="1.0" />
@@ -32,7 +47,6 @@
         <arg name="player_color" value="Green" />
     </include>
 
-   <!--  create the green2 player -->
     <include file="$(find p_spombinho_bringup)/launch/bringup.launch">
         <arg name="x_pos" value="-2.0" />
         <arg name="y_pos" value="1.4" />
@@ -41,12 +55,37 @@
         <arg name="player_color" value="Green" />
     </include>
 
-        <!--  create the blue1 player -->
+    <include file="$(find p_spombinho_bringup)/launch/bringup.launch">
+        <arg name="x_pos" value="2.0" />
+        <arg name="y_pos" value="-2.0" />
+        <arg name="z_pos" value="0" />
+        <arg name="player_name" value="green3" />
+        <arg name="player_color" value="Green" />
+    </include>
+
+
+        <!--  create the blues players -->
     <include file="$(find p_spombinho_bringup)/launch/bringup.launch">
         <arg name="x_pos" value="-1.0" />
         <arg name="y_pos" value="-1.0" />
         <arg name="z_pos" value="0" />
         <arg name="player_name" value="blue1" />
+        <arg name="player_color" value="Blue" />
+    </include>
+
+    <include file="$(find p_spombinho_bringup)/launch/bringup.launch">
+        <arg name="x_pos" value="-4.0" />
+        <arg name="y_pos" value="0.0" />
+        <arg name="z_pos" value="0" />
+        <arg name="player_name" value="blue2" />
+        <arg name="player_color" value="Blue" />
+    </include>
+
+    <include file="$(find p_spombinho_bringup)/launch/bringup.launch">
+        <arg name="x_pos" value="3.0" />
+        <arg name="y_pos" value="1.0" />
+        <arg name="z_pos" value="0" />
+        <arg name="player_name" value="blue3" />
         <arg name="player_color" value="Blue" />
     </include>
 

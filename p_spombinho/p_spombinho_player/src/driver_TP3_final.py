@@ -32,10 +32,18 @@ class Driver:
         self.image_flag = rospy.get_param('~image_flag', 'True')
         # pos initialization -------------------
         self.preyPos = PoseStamped()
+        self.preyPos.pose.position.x = math.inf
+        self.preyPos.pose.position.y = math.inf
         self.attackerPos = PoseStamped()
+        self.attackerPos.pose.position.x = math.inf
+        self.attackerPos.pose.position.y = math.inf
         self.teammatePos = PoseStamped()
         self.preyPos_back = PoseStamped()
+        self.preyPos_back.pose.position.x = math.inf
+        self.preyPos_back.pose.position.y = math.inf
         self.attackerPos_back = PoseStamped()
+        self.attackerPos_back.pose.position.x = math.inf
+        self.attackerPos_back.pose.position.y = math.inf
         self.teammatePos_back = PoseStamped()
         self.Hunting = False
         self.Running = False
@@ -129,31 +137,33 @@ class Driver:
 
         self.goal = goal_msg # storing the goal inside the class
         self.goal_active = True
+        self.Navigating = False
+        self.Running = False
+        self.Hunting = False
 
     def sendCommandCallback(self, msg):
 
         # Decision outputs a speed (linear velocity) and an angle (angular velocity)
         # input : goal
         # output : angle and speed
-
+        print(self.Hunting, self.Running, self.Navigating)
         if self.Hunting is True:
-            self.goal = self.preyPos  # storing the goal inside the class
-            self.goal.header.frame_id = self.name + '/base_link'
-            print(self.goal)
+            # print(self.goal)
             self.goal_active = True
+            self.Navigating = False
             print('attack')
 
         elif self.Running is True:
-            self.goal = self.attackerPos_back  # storing the goal inside the class
-            self.goal.pose.position.x = - self.attackerPos_back.pose.position.x
-            self.goal.pose.position.y = - self.attackerPos_back.pose.position.y
-            self.goal.header.frame_id = self.name + '/base_link'
-            self.goal_active = True
-            print('running')
-
+            command_msg = Twist()
+            self.Navigating = False
+            command_msg.linear.x = 0.7
+            command_msg.angular.z = 0.5
+            self.publisher_goal.publish(command_msg)
         else:
             self.goal_active = False
             self.Navigating = True
+            self.Running = False
+            self.Hunting = False
             print('navigating while waiting goal')
 
         # verify if the goal is achieved
@@ -201,7 +211,7 @@ class Driver:
         distance = math.sqrt(x**2 + y**2)
         return distance
 
-    def driveStraight(self, goal, minimum_speed=0.1, maximum_speed=1.0):
+    def driveStraight(self, goal, minimum_speed=0.5, maximum_speed=1.5):
         """
         :param goal: where the robot wants to go
         :param minimum_speed: min speed the robot can go
@@ -288,8 +298,20 @@ class Driver:
         # comment to stop the car
         if math.isinf(self.preyPos.pose.position.x) is False:
             self.Hunting = True
+            self.Navigating = False
+            self.Running = False
+            self.goal = self.preyPos  # storing the goal inside the class
+            self.goal.header.frame_id = self.name + '/base_link'
+
+        elif math.isinf(self.attackerPos.pose.position.x) is False:
+            self.Navigating = True
+            self.Running = True
+            self.Hunting = False
         else:
             self.Hunting = False
+            self.Navigating = True
+            self.Running = False
+
         return image
 
     # Camera que cria o modo de fuga !
@@ -328,10 +350,17 @@ class Driver:
 
         # probably this is for the other function ( we gonna need two flags, one back and other front, so they can't be here
         # comment to stop the car
-        if math.isinf(self.attackerPos_back.pose.position.x) is False:
-            self.Running = True
-        else:
-            self.Running = False
+        if math.isinf(self.preyPos.pose.position.x) is True:
+            if math.isinf(self.attackerPos_back.pose.position.x) is False:
+                self.Navigating = False
+                self.Running = True
+                self.Hunting = False
+            else:
+                self.Running = False
+                self.Navigating = True
+                self.Hunting = False
+
+
 
         return image
 
@@ -405,7 +434,7 @@ class Driver:
         self.publish_marker.publish(marker)
         self.publish_marker.publish(marker2)
         self.id = self.id + 2
-        if self.id > 6:
+        if self.id > 12:
             marker.DELETEALL
             marker2.DELETEALL
             self.id = 0
@@ -455,15 +484,15 @@ class Driver:
 
         # we need to detect the obstacles ( meaning that the points we see arent from the prey nor the attacker, so
         # they are considered obstacles
-        thr1 = 0.8  # Laser scan range threshold
-        thr2 = 0.8
+        thr1 = 1.0 # Laser scan range threshold
+        thr2 = 0.5
         if self.Navigating is True:
             if msg.ranges[0] > thr1 and msg.ranges[15] > thr2 and msg.ranges[345] > thr2:
                 move.linear.x = random.uniform(0.5, 1) # go forward (linear velocity)
                 move.angular.z = 0.0  # do not rotate (angular velocity)
             else:
                 move.linear.x = 0.0  # stop
-                move.angular.z = random.choice([-0.5, 0.5])  # rotate counter-clockwise
+                move.angular.z = 1.0 # rotate counter-clockwise
                 if msg.ranges[0] > thr1 and msg.ranges[15] > thr2 and msg.ranges[345] > thr2:
                     move.linear.x = random.uniform(0.5, 1)
                     move.angular.z = 0.0
