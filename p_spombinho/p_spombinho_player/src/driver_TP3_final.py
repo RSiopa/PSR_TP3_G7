@@ -109,7 +109,7 @@ class Driver:
                 self.attacker_color_min = (100, 0, 0)
                 self.attacker_color_max = (255, 31, 31)
                 self.prey_color_min = (0, 170, 0)
-                self.prey_color_max = (31, 255, 31)
+                self.prey_color_max = (30, 255, 30)
                 self.teammate_color_min = (0, 0, 100)
                 self.teammate_color_max = (31, 31, 255)
 
@@ -137,9 +137,7 @@ class Driver:
 
         self.goal = goal_msg # storing the goal inside the class
         self.goal_active = True
-        self.Navigating = False
-        self.Running = False
-        self.Hunting = False
+
 
     def sendCommandCallback(self, msg):
 
@@ -158,21 +156,17 @@ class Driver:
         else:
             if self.Navigating is True:
                 self.goal_active = False
-                self.Navigating = True
                 self.Running = False
-                self.Hunting = False
                 print('navigating while waiting goal')
             else:
                 if self.Running is True:
                     self.Navigating = False
-                    self.Running = True
-                    self.Hunting = False
                     if math.isinf(self.attackerPos_back.pose.position.x) is False:
                         self.goal = self.attackerPos_back
                         self.goal.pose.position.x = - self.attackerPos_back.pose.position.x
                         self.goal.pose.position.y = - self.attackerPos_back.pose.position.y
                     else:
-                        self.goal = self.attackerPos_back
+                        self.goal = self.attackerPos
                         self.goal.pose.position.x = - self.attackerPos.pose.position.x
                         self.goal.pose.position.y = - self.attackerPos.pose.position.y
                     self.goal.header.frame_id = self.name + '/base_link'
@@ -228,7 +222,7 @@ class Driver:
         distance = math.sqrt(x**2 + y**2)
         return distance
 
-    def driveStraight(self, goal, minimum_speed=0.5, maximum_speed=1.5):
+    def driveStraight(self, goal, minimum_speed=0.2, maximum_speed=1):
         """
         :param goal: where the robot wants to go
         :param minimum_speed: min speed the robot can go
@@ -318,11 +312,13 @@ class Driver:
             self.goal = self.preyPos  # storing the goal inside the class
             self.goal.header.frame_id = self.name + '/base_link'
         else:
-            self.Hunting = False
             if math.isinf(self.attackerPos.pose.position.x) is False:
                 self.Running = True
+                self.Hunting = False
             else:
                 self.Navigating = True
+                self.Running = False
+                self.Hunting = False
 
         return image
 
@@ -384,9 +380,9 @@ class Driver:
         else:
             for idx, pixel in enumerate(pixel_cloud):
                 # como os valores de trás estao a ir para a frente e vice versa, o melhor é so ver pelo x
-                # dist.append(math.sqrt((Center[0]-pixel[0])**2 + (Center[1]-pixel[1])**2))
-                dist.append(math.sqrt((Center[0] - pixel[0]) ** 2))
-                if dist[idx] < 50:
+                dist.append(math.sqrt((Center[0]-pixel[0])**2 + (Center[1]-pixel[1])**2))
+                # dist.append(math.sqrt((Center[0] - pixel[0]) ** 2))
+                if dist[idx] < 200:
                     if dist[idx] < flag:
                         Flag_lidar_points.pose.position.x = self.points[idx][0]
                         Flag_lidar_points.pose.position.y = self.points[idx][1]
@@ -492,22 +488,22 @@ class Driver:
         thr2 = 0.8
         if self.Navigating is True:
             if msg.ranges[0] > thr1 and msg.ranges[15] > thr2 and msg.ranges[345] > thr2:
-                move.linear.x = random.uniform(0.5, 1) # go forward (linear velocity)
+                move.linear.x = random.uniform(0.2, 0.8) # go forward (linear velocity)
                 move.angular.z = 0.0  # do not rotate (angular velocity)
             else:
                 move.linear.x = 0.0  # stop
-                move.angular.z = 1.0 # rotate counter-clockwise
+                move.angular.z = 0.5 # rotate counter-clockwise
                 if msg.ranges[0] > thr1 and msg.ranges[15] > thr2 and msg.ranges[345] > thr2:
-                    move.linear.x = random.uniform(0.5, 1)
+                    move.linear.x = random.uniform(0.2, 0.8)
                     move.angular.z = 0.0
             self.publisher_goal.publish(move)  # publish the move object
 
 
     def GetCentroid(self, mask, image):
         # Morph close and invert image
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-        close = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
-
+        # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        # close = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+        close = mask
         # voltar a encontrar a centroid ( nao desta maneira) e so dar return a maior (mas precisamos de ambas para o rviz)
         contours, hierarchy = cv2.findContours(close, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         if contours:
