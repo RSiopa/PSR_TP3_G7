@@ -149,16 +149,22 @@ class Driver:
         print(self.Hunting, self.Running, self.Navigating)
         if self.Hunting is True:
             # print(self.goal)
+            self.goal = self.preyPos
+            self.goal.header.frame_id = self.name + '/base_link'
             self.goal_active = True
             self.Navigating = False
-            print('attack')
 
         elif self.Running is True:
-            command_msg = Twist()
-            self.Navigating = False
-            command_msg.linear.x = 0.7
-            command_msg.angular.z = 0.5
-            self.publisher_goal.publish(command_msg)
+            if math.isinf(self.attackerPos_back.pose.position.x) is False:
+                self.goal = self.attackerPos_back
+                self.goal.pose.position.x = - self.attackerPos_back.pose.position.x
+                self.goal.pose.position.y = - self.attackerPos_back.pose.position.y
+            else:
+                self.goal = self.attackerPos_back
+                self.goal.pose.position.x = - self.attackerPos.pose.position.x
+                self.goal.pose.position.y = - self.attackerPos.pose.position.y
+            self.goal.header.frame_id = self.name + '/base_link'
+            self.goal_active = True
         else:
             self.goal_active = False
             self.Navigating = True
@@ -302,15 +308,18 @@ class Driver:
             self.Running = False
             self.goal = self.preyPos  # storing the goal inside the class
             self.goal.header.frame_id = self.name + '/base_link'
+            print('I have a prey in front')
 
         elif math.isinf(self.attackerPos.pose.position.x) is False:
-            self.Navigating = True
+            self.Navigating = False
             self.Running = True
             self.Hunting = False
+            print('oh no! an attacker at front')
         else:
             self.Hunting = False
             self.Navigating = True
             self.Running = False
+            print('nobody at front')
 
         return image
 
@@ -355,10 +364,8 @@ class Driver:
                 self.Navigating = False
                 self.Running = True
                 self.Hunting = False
-            else:
-                self.Running = False
-                self.Navigating = True
-                self.Hunting = False
+                print('oh no! attacker in the back')
+
 
 
 

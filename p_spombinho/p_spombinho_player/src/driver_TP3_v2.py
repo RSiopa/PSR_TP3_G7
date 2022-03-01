@@ -135,12 +135,12 @@ class Driver:
     def sendCommandCallback(self, msg):
 
         # Decision outputs a speed (linear velocity) and an angle (angular velocity)
-        # input : goal
+        # input : goalself.goal.header.frame_id = self.name + '/base_link'
         # output : angle and speed
 
         if self.Hunting is True:
             self.goal = self.preyPos  # storing the goal inside the class
-            self.goal.header.frame_id = self.name + '/base_link'
+
             print(self.goal)
             self.goal_active = True
             print('attack')
