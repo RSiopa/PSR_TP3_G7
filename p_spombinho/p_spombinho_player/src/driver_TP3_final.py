@@ -74,6 +74,7 @@ class Driver:
         self.br = CvBridge()
         # initialization of the list of laser scan points
         self.points = []
+        self.points_back = []
         self.wp_to_pixels = []
         # subscribe to the laser scan values
         self.laser_subscriber = rospy.Subscriber(self.node + '/scan', LaserScan, self.Laser_Points)
@@ -88,9 +89,16 @@ class Driver:
                                   [0.0006, 0.0008, -1.0, -0.029],
                                   [1.0, 0.0006, 0.0006, -0.140]])
 
-        self.lidar2cam_back = np.array([[-0.0027, 1.0, -0.0002, 0.022],
+        # self.lidar2cam = np.array([[0, -1.0, 0, -0.0],
+        #                           [0, 0, -1.0, -0.029],
+        #                           [1.0, 0, 0, -0.140]])
+
+        self.lidar2cam_back= np.array([[-0.0027, 1.0, -0.0002, 0.022],
                                         [-0.0009, -0.0002, -1.0, -0.029],
                                         [-1.0, -0.0027, 0.0009, -0.139]])
+        # self.lidar2cam_back = np.array([[-0.002, 1.0, -0.000002, 0.022],
+        #                                 [-0.002, -0.000002, -1.0, -0.029],
+        #                                 [-1.0, -0.002, 0.002, -0.139]])
 
         # subscribes to the back and front images of the car
         self.image_subscriber_front = message_filters.Subscriber(self.node + '/camera/rgb/image_raw', Image)
@@ -292,11 +300,11 @@ class Driver:
         image = cv2.add(gray, image)
 
         # get the transform the lidar values to pixel, draws it in the image
-        pixel_cloud = self.lidar_to_image(camera_matrix, image)
+        pixel_cloud = self.lidar_to_image(camera_matrix, image, self.points)
         # probably here it receives the self.attackerPos , self.preyPos and self.teammatePos in case they exist
-        self.preyPos = self.ClosestPoint(Center_p,  pixel_cloud)
-        self.attackerPos = self.ClosestPoint(Center_a, pixel_cloud)
-        self.teammatePos = self.ClosestPoint(Center_t, pixel_cloud)
+        self.preyPos = self.ClosestPoint(Center_p,  pixel_cloud, self.points)
+        self.attackerPos = self.ClosestPoint(Center_a, pixel_cloud, self.points)
+        self.teammatePos = self.ClosestPoint(Center_t, pixel_cloud, self.points)
 
         if math.isinf(self.preyPos.pose.position.x) is False:
             self.sendMarker(self.preyPos, self.prey_color_max, "prey")
@@ -342,12 +350,12 @@ class Driver:
         image = cv2.add(gray, image)
 
         # get the transform the lidar values to pixel, draws it in the image
-        pixel_cloud = self.lidar_to_image(camera_matrix, image)
+        pixel_cloud = self.lidar_to_image(camera_matrix, image, self.points_back)
         # probably here it receives the self.attackerPos , self.preyPos and self.teammatePos in case they exist
         # it is based by the closest point of the camera centroid
-        self.preyPos_back = self.ClosestPoint(Center_p,  pixel_cloud)
-        self.attackerPos_back = self.ClosestPoint(Center_a, pixel_cloud)
-        self.teammatePos_back = self.ClosestPoint(Center_t, pixel_cloud)
+        self.preyPos_back = self.ClosestPoint(Center_p,  pixel_cloud, self.points_back)
+        self.attackerPos_back = self.ClosestPoint(Center_a, pixel_cloud, self.points_back)
+        self.teammatePos_back = self.ClosestPoint(Center_t, pixel_cloud, self.points_back)
 
         if math.isinf(self.preyPos_back.pose.position.x) is False:
             self.sendMarker(self.preyPos_back, self.prey_color_max, "prey")
@@ -364,7 +372,7 @@ class Driver:
 
         return image
 
-    def ClosestPoint(self, Center,  pixel_cloud):
+    def ClosestPoint(self, Center,  pixel_cloud, points):
         Flag_lidar_points = PoseStamped()
         Close_lidar_point = PoseStamped()
         Close_lidar_point.pose.position.x = math.inf
@@ -384,8 +392,8 @@ class Driver:
                 # dist.append(math.sqrt((Center[0] - pixel[0]) ** 2))
                 if dist[idx] < 200:
                     if dist[idx] < flag:
-                        Flag_lidar_points.pose.position.x = self.points[idx][0]
-                        Flag_lidar_points.pose.position.y = self.points[idx][1]
+                        Flag_lidar_points.pose.position.x = points[idx][0]
+                        Flag_lidar_points.pose.position.y = points[idx][1]
                         flag = dist[idx]
 
             # point to the base of the robot
@@ -439,7 +447,7 @@ class Driver:
             marker2.DELETEALL
             self.id = 0
 
-    def lidar_to_image(self, camera_matrix, image):
+    def lidar_to_image(self, camera_matrix, image, points):
         """
         :param camera_matrix: attacker points from the camera
         :return:
@@ -447,7 +455,7 @@ class Driver:
         # so testar os valores front por agora
         pixel_cloud =[]
         pixels_final = []
-        for value in self.points:
+        for value in points:
             value_array = np.array(value)
             pixel = np.dot(camera_matrix, value_array.transpose())
             pixel = np.dot(self.cameraIntrinsic, pixel)
@@ -474,13 +482,17 @@ class Driver:
         """
         # creates a list of world coordinates
         self.points = []
+        self.points_back = []
         move = Twist()
         z = 0
         for idx, range in enumerate(msg.ranges):
             theta = msg.angle_min + idx * msg.angle_increment
             x = range * math.cos(theta)
             y = range * math.sin(theta)
-            self.points.append([x, y, z, 1])
+            if (x > 0) & (y > 0) | (x > 0) & (y < 0):
+                self.points.append([x, y, z, 1])
+            elif (x < 0) & (y < 0) | (x > 0) & (y < 0) :
+                self.points_back.append([x, y, z, 1])
 
         # we need to detect the obstacles ( meaning that the points we see arent from the prey nor the attacker, so
         # they are considered obstacles
