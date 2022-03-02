@@ -155,6 +155,7 @@ class Driver:
         print(self.Hunting, self.Running, self.Navigating)
         if self.Hunting is True:
             # print(self.goal)
+            self.sendMarker_main("Hunting")
             self.goal = self.preyPos
             self.goal.header.frame_id = self.name + '/base_link'
             self.goal_active = True
@@ -165,17 +166,19 @@ class Driver:
             if self.Navigating is True:
                 self.goal_active = False
                 self.Running = False
+                self.sendMarker_main("Navigating")
                 print('navigating while waiting goal')
             else:
                 if self.Running is True:
                     self.Navigating = False
+                    self.sendMarker_main("Running")
                     if math.isinf(self.attackerPos_back.pose.position.x) is False:
                         self.goal = self.attackerPos_back
-                        self.goal.pose.position.x = - self.attackerPos_back.pose.position.x
+                        self.goal.pose.position.x = self.attackerPos_back.pose.position.x
                         self.goal.pose.position.y = - self.attackerPos_back.pose.position.y
                     else:
                         self.goal = self.attackerPos
-                        self.goal.pose.position.x = - self.attackerPos.pose.position.x
+                        self.goal.pose.position.x = self.attackerPos.pose.position.x
                         self.goal.pose.position.y = - self.attackerPos.pose.position.y
                     self.goal.header.frame_id = self.name + '/base_link'
                     self.goal_active = True
@@ -230,7 +233,7 @@ class Driver:
         distance = math.sqrt(x**2 + y**2)
         return distance
 
-    def driveStraight(self, goal, minimum_speed=0.2, maximum_speed=1):
+    def driveStraight(self, goal, minimum_speed=0.4, maximum_speed=1.4):
         """
         :param goal: where the robot wants to go
         :param minimum_speed: min speed the robot can go
@@ -323,6 +326,7 @@ class Driver:
             if math.isinf(self.attackerPos.pose.position.x) is False:
                 self.Running = True
                 self.Hunting = False
+                self.Navigating = False
             else:
                 self.Navigating = True
                 self.Running = False
@@ -369,6 +373,8 @@ class Driver:
         if math.isinf(self.preyPos.pose.position.x) is True:
             if math.isinf(self.attackerPos_back.pose.position.x) is False:
                 self.Running = True
+                self.Hunting = False
+                self.Navigating = False
 
         return image
 
@@ -390,11 +396,11 @@ class Driver:
                 # como os valores de trás estao a ir para a frente e vice versa, o melhor é so ver pelo x
                 dist.append(math.sqrt((Center[0]-pixel[0])**2 + (Center[1]-pixel[1])**2))
                 # dist.append(math.sqrt((Center[0] - pixel[0]) ** 2))
-                if dist[idx] < 200:
-                    if dist[idx] < flag:
-                        Flag_lidar_points.pose.position.x = points[idx][0]
-                        Flag_lidar_points.pose.position.y = points[idx][1]
-                        flag = dist[idx]
+                # if dist[idx] < 200:
+                if dist[idx] < flag:
+                    Flag_lidar_points.pose.position.x = points[idx][0]
+                    Flag_lidar_points.pose.position.y = points[idx][1]
+                    flag = dist[idx]
 
             # point to the base of the robot
             # manter-se em inf caso não exista valores proximos
@@ -447,6 +453,27 @@ class Driver:
             marker2.DELETEALL
             self.id = 0
 
+    def sendMarker_main(self, text):
+        marker3 = Marker()
+        marker3.header.frame_id = "red1/base_link"
+        marker3.type = marker3.TEXT_VIEW_FACING
+        marker3.action = marker3.ADD
+        marker3.scale.x = 0.1
+        marker3.scale.y = 0.1
+        marker3.scale.z = 0.1
+
+        marker3.color.a = 1.0
+        marker3.color.r = 1.0
+        marker3.color.g = 1.0
+        marker3.color.b = 1.0
+        marker3.pose.orientation.w = 0.0
+        marker3.pose.position.x = 0
+        marker3.pose.position.y = 0
+        marker3.pose.position.z = 0.6
+        marker3.id = 13
+        marker3.text = text
+        self.publish_marker.publish(marker3)
+
     def lidar_to_image(self, camera_matrix, image, points):
         """
         :param camera_matrix: attacker points from the camera
@@ -497,16 +524,16 @@ class Driver:
         # we need to detect the obstacles ( meaning that the points we see arent from the prey nor the attacker, so
         # they are considered obstacles
         thr1 = 1.0 # Laser scan range threshold
-        thr2 = 0.8
+        thr2 = 1.0
         if self.Navigating is True:
             if msg.ranges[0] > thr1 and msg.ranges[15] > thr2 and msg.ranges[345] > thr2:
-                move.linear.x = random.uniform(0.2, 0.8) # go forward (linear velocity)
+                move.linear.x = random.uniform(0.2, 0.5) # go forward (linear velocity)
                 move.angular.z = 0.0  # do not rotate (angular velocity)
             else:
                 move.linear.x = 0.0  # stop
-                move.angular.z = 0.5 # rotate counter-clockwise
+                move.angular.z = 1.5 # rotate counter-clockwise
                 if msg.ranges[0] > thr1 and msg.ranges[15] > thr2 and msg.ranges[345] > thr2:
-                    move.linear.x = random.uniform(0.2, 0.8)
+                    move.linear.x = random.uniform(0.2, 0.5)
                     move.angular.z = 0.0
             self.publisher_goal.publish(move)  # publish the move object
 
