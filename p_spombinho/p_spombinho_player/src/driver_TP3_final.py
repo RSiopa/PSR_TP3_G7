@@ -492,7 +492,7 @@ class Driver:
             if math.isnan(value[0]) is False:
                 world_pixels = [value[0] / value[2], value[1] / value[2], value[2]]
                 if ((world_pixels[0] < 1280) & (world_pixels[0] > 0)) & ((world_pixels[1] < 720) & (world_pixels[1] > 0)):
-                    cv2.circle(image, (int(world_pixels[0]), int(world_pixels[1])), 5, (100, 160, 200), -1)
+                    cv2.circle(image, (int(world_pixels[0]), int(world_pixels[1])), 5, (106, 48, 253), -1)
                 pixels_final.append(world_pixels)
                 # with this we have the pixel points of the lidar, now we need to use this list, check the closest point
                 # from the centroid (depending which centroid is, or if there is one)
@@ -560,7 +560,7 @@ class Driver:
             cX = int(sum(center_x_raw)/len(center_x_raw))
             # avg y value, used as centroid y coord
             cY = int(sum(center_y_raw)/len(center_y_raw))
-            cv2.circle(image, (cX, cY), 7, (255, 255, 255), -1)
+            cv2.circle(image, (cX, cY), 10, (0, 255, 255), -1)
             Center = (cX, cY)
             # print(Center)
             return Center, close
