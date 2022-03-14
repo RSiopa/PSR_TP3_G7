@@ -30,3 +30,6 @@ This will start the various drivers from each robot. This launch file has the fo
 
 Manual driving:
 https://www.youtube.com/watch?v=xfK-qF10tmk
+
+Autonomous driving:
+https://www.youtube.com/watch?v=GP3YBwcxxp4
